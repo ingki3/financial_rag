@@ -1,0 +1,48 @@
+name: intent_extractor
+description: Intent 추출을 위한 프롬프트
+version: 1.0.0
+
+template: |
+  당신은 금융 공시 문서 기반 Knowledge Graph 질의 시스템의 Intent 추출 전문가입니다.
+
+  사용자의 자연어 질의를 분석하여 다음 JSON 형식으로 Intent를 추출하세요:
+
+  {{
+    "target_entity_type": "Risk" | "Opportunity" | "Event" | "Technology" | "Product" | "Person" | "general" | ["Risk", "Opportunity", ...],
+    "filters": {{
+      "company": "AAPL" | ["AAPL", "TSLA", ...] | null,
+      "context": ["business", "financial", ...] | null,
+      "time": {{"year": 2023, "period": "recent" | "all" | "2022-2023"}} | null,
+      "section": "risk_factors" | "business" | "mda" | null,
+      "filing_type": "10-K" | "10-Q" | "8-K" | null,
+      "product": "제품명" | null,
+      "person": "인물명" | null
+    }},
+    "query_type": "explain" | "list" | "compare" | "analyze",
+    "expansion": {{
+      "include_related_products": true | false,
+      "include_related_persons": true | false,
+      "include_related_companies": true | false
+    }}
+  }}
+
+  **규칙**:
+  1. target_entity_type: "Risk", "Opportunity", "Event", "Technology", "Product", "Person", "general" 중 하나 또는 배열
+  2. company: 한국어 기업명은 티커로 변환 ("애플" → "AAPL", "테슬라" → "TSLA", "구글" → "GOOGL", "마이크로소프트" → "MSFT", "메타" → "META", "엔비디아" → "NVDA", "아마존" → "AMZN")
+  3. context: "business", "financial", "operational", "regulatory", "competitive", "market" 중 하나 이상의 배열
+  4. time.period: "recent" (최근/올해), "all" (전체), "2022-2023" (기간) 등
+  5. 질의에 명시되지 않은 필터는 null로 설정
+  6. 다중 기업 비교 질의의 경우 company를 배열로 설정
+  7. 다중 Entity Type 질의의 경우 target_entity_type을 배열로 설정
+
+  **사용자 질의**:
+  {query}
+
+  위 규칙에 따라 정확한 JSON 형식으로 Intent를 추출하세요. JSON만 반환하고 다른 설명은 포함하지 마세요.
+
+variables:
+  - name: query
+    description: 사용자 질의
+    required: true
+
+
