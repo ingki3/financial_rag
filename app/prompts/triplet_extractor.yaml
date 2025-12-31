@@ -1,0 +1,259 @@
+name: triplet_extractor
+version: 3
+description: >
+  Extract structured business signals (opportunities, risks, events, technologies) with mentioned products, persons, and companies
+  from an SEC filing section into a strict JSON object. Each entity must include mentioned_products, mentioned_persons, and mentioned_companies fields.
+template: |
+  You are an information extraction engine for SEC filings.
+
+  Context:
+  - Company ticker: {{ticker}}
+  - Filing type: {{filing_type}}
+  - Section: {{section}}
+
+  Task:
+  Extract up to 10 items for each of the following categories:
+  1) Opportunities: growth drivers, market opportunities, competitive advantages
+  2) Risks: risk factors, regulatory risks, competitive threats, operational risks
+  3) Events: major events such as M&A, product launches, litigation, regulatory changes (include a date when stated)
+  4) Technologies: technologies, innovations, R&D developments, technical capabilities (e.g., chip technologies, software platforms, manufacturing processes)
+
+  **CRITICAL**: For EACH extracted item (opportunity, risk, event, or technology), you MUST identify:
+  - Mentioned Products: product names mentioned in the entity title OR description (e.g., "iPhone 15 Pro", "Tesla Model 3", "Apple Watch Ultra 2")
+    * If no products are mentioned, use an empty array []
+    * Include the context of how the product was mentioned
+    * **IMPORTANT**: Product names must be proper nouns (e.g., "Tesla Model 3", "iPhone 15 Pro", not "car" or "phone")
+  - Mentioned Persons: person names and their roles mentioned in the entity title OR description (e.g., "Tim Cook", "CEO")
+    * If no persons are mentioned, use an empty array []
+    * Include the role if mentioned (CEO, CFO, CTO, Director, etc.)
+  - Mentioned Companies: competitor, partner, or other company names mentioned (if any)
+    * If no companies are mentioned, use an empty array []
+    * Include ticker symbol if known
+
+  **IMPORTANT**: Every single opportunity, risk, event, and technology item MUST include these three fields:
+  - "mentioned_products": [] (can be empty, but field must exist)
+  - "mentioned_persons": [] (can be empty, but field must exist)
+  - "mentioned_companies": [] (can be empty, but field must exist)
+
+  Additionally, extract a global list of:
+  - All unique products mentioned across the entire document
+  - All unique persons mentioned across the entire document
+
+  Output rules (very important):
+  - Output MUST be valid JSON only. No extra text. No Markdown.
+  - Keep the JSON schema EXACTLY as specified below.
+  - Write the content in English (entity/description/metric/value/period). Proper nouns should remain as-is.
+  - Descriptions must be 2–3 sentences and preserve the source wording as much as possible (avoid overly generic summaries).
+  - If a category has no extractable items, return an empty array [] for it.
+
+  JSON schema (must match exactly):
+  {
+    "opportunities": [
+      {
+        "entity": "Short title",
+        "description": "2–3 sentences, English",
+        "mentioned_products": [
+          {
+            "name": "Product Name",
+            "mention_context": "how it was mentioned in this entity"
+          }
+        ],
+        "mentioned_persons": [
+          {
+            "name": "Person Name",
+            "role": "CEO|CFO|CTO|Director|other or null",
+            "mention_context": "how they were mentioned"
+          }
+        ],
+        "mentioned_companies": [
+          {
+            "name": "Company Name",
+            "ticker": "TICKER or null",
+            "mention_context": "how they were mentioned"
+          }
+        ]
+      }
+    ],
+    "risks": [
+      {
+        "entity": "Short title",
+        "description": "2–3 sentences, English",
+        "mentioned_products": [],
+        "mentioned_persons": [],
+        "mentioned_companies": []
+      }
+    ],
+    "events": [
+      {
+        "entity": "Event name",
+        "date": "YYYY-MM-DD or YYYY or empty string",
+        "description": "2–3 sentences, English",
+        "mentioned_products": [],
+        "mentioned_persons": [],
+        "mentioned_companies": []
+      }
+    ],
+    "technologies": [
+      {
+        "entity": "Technology name",
+        "description": "2–3 sentences, English",
+        "mentioned_products": [],
+        "mentioned_persons": [],
+        "mentioned_companies": []
+      }
+    ],
+    "mentioned_products_global": [
+      {
+        "name": "Product Name (must be proper noun, e.g., 'Tesla Model 3', 'iPhone 15 Pro')",
+        "category": "smartphone|wearable|service|other",
+        "first_mentioned_in": "opportunity|risk|event|technology"
+      }
+    ],
+    "mentioned_persons_global": [
+      {
+        "name": "Person Name",
+        "role": "CEO|CFO|CTO|Director|other",
+        "first_mentioned_in": "opportunity|risk|event|technology"
+      }
+    ]
+  }
+
+  Few-shot examples:
+
+  Example 1 (Opportunity with Products)
+  Source text:
+  "We believe our integrated ecosystem of hardware, software, and services provides a unique customer experience and strengthens brand loyalty. Our iPhone, Mac, and iPad products work seamlessly together."
+  Output (JSON only):
+  {
+    "opportunities": [
+      {
+        "entity": "Integrated ecosystem drives loyalty",
+        "description": "The company states that its integrated ecosystem of hardware, software, and services provides a unique customer experience. It emphasizes that this integration strengthens brand loyalty and supports continued demand across products and services.",
+        "mentioned_products": [
+      {
+            "name": "iPhone",
+            "mention_context": "mentioned as part of integrated ecosystem"
+          },
+          {
+            "name": "Mac",
+            "mention_context": "mentioned as part of integrated ecosystem"
+          },
+          {
+            "name": "iPad",
+            "mention_context": "mentioned as part of integrated ecosystem"
+          }
+        ],
+        "mentioned_persons": [],
+        "mentioned_companies": []
+      }
+    ],
+    "risks": [],
+    "events": [],
+    "technologies": [],
+    "mentioned_products_global": [
+      {
+        "name": "iPhone",
+        "category": "smartphone",
+        "first_mentioned_in": "opportunity"
+      },
+      {
+        "name": "Mac",
+        "category": "other",
+        "first_mentioned_in": "opportunity"
+      },
+      {
+        "name": "iPad",
+        "category": "other",
+        "first_mentioned_in": "opportunity"
+      }
+    ],
+    "mentioned_persons_global": []
+  }
+
+  Example 2 (Event with Products)
+  Source text:
+  "In 2023, we introduced the iPhone 15 Pro and iPhone 15 as part of our smartphone line. These product introductions significantly impact net sales."
+  Output (JSON only):
+  {
+    "opportunities": [],
+    "risks": [],
+    "events": [
+      {
+        "entity": "Release of iPhone 15 Lineup",
+        "date": "2023",
+        "description": "The company introduced the iPhone 15 Pro and iPhone 15 as part of its smartphone line. These product introductions significantly impact net sales, cost of sales, and operating expenses during the period.",
+        "mentioned_products": [
+          {
+            "name": "iPhone 15 Pro",
+            "mention_context": "product introduced in this event"
+          },
+          {
+            "name": "iPhone 15",
+            "mention_context": "product introduced in this event"
+      }
+    ],
+        "mentioned_persons": [],
+        "mentioned_companies": []
+      }
+    ],
+    "technologies": [],
+    "mentioned_products_global": [
+      {
+        "name": "iPhone 15 Pro",
+        "category": "smartphone",
+        "first_mentioned_in": "event"
+      },
+      {
+        "name": "iPhone 15",
+        "category": "smartphone",
+        "first_mentioned_in": "event"
+      }
+    ],
+    "mentioned_persons_global": []
+  }
+
+  Example 3 (Technology with Products)
+  Source text:
+  "We developed the A17 Pro chip using 3-nanometer process technology. This advanced chip powers the iPhone 15 Pro models and enables improved performance and energy efficiency."
+  Output (JSON only):
+  {
+    "opportunities": [],
+    "risks": [],
+    "events": [],
+    "technologies": [
+      {
+        "entity": "A17 Pro Chip Technology",
+        "description": "The company developed the A17 Pro chip using 3-nanometer process technology. This advanced chip powers the iPhone 15 Pro models and enables improved performance and energy efficiency.",
+        "mentioned_products": [
+          {
+            "name": "iPhone 15 Pro",
+            "mention_context": "product powered by this technology"
+          },
+          {
+            "name": "A17 Pro",
+            "mention_context": "chip technology developed"
+          }
+        ],
+        "mentioned_persons": [],
+        "mentioned_companies": []
+      }
+    ],
+    "mentioned_products_global": [
+      {
+        "name": "iPhone 15 Pro",
+        "category": "smartphone",
+        "first_mentioned_in": "technology"
+      },
+      {
+        "name": "A17 Pro",
+        "category": "other",
+        "first_mentioned_in": "technology"
+      }
+    ],
+    "mentioned_persons_global": []
+  }
+
+  Now extract from the following SEC text:
+  {{text}}
+
+
