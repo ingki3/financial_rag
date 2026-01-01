@@ -1,0 +1,171 @@
+---
+globs: docs/**/*.md
+alwaysApply: false
+---
+# Docs 문서 작성 가이드
+
+이 문서는 `docs/` 디렉토리에 있는 모든 `.md` 파일 작성 및 수정에 대한 가이드입니다.
+
+## 📋 Docs 문서의 목적
+
+`docs/` 디렉토리의 역할과 목적은 `plan.mdc`의 "Docs 디렉토리 역할" 섹션을 참조하세요.
+
+## 🔒 수정 규칙
+
+1. **승인 불필요**: `docs/` 하위 파일은 승인 없이 수정 및 생성 가능합니다.
+2. **일관성 유지**: 기존 문서의 구조와 형식을 유지해야 합니다.
+3. **Phase 번호 참조**: Phase 번호가 변경되면 관련 문서의 참조도 업데이트해야 합니다.
+
+## 📝 파일 명명 규칙
+
+### 기본 형식
+- **Phase 관련 문서**: `{Phase numbering}-{problem to solve}.md`
+  - 예: `docs/5-1-normalization-improvement.md`
+  - 예: `docs/4-2-risk-factors-opportunities-explanation.md`
+- **일반 문서**: `{description}.md`
+  - 예: `docs/normalization-improvement-plan.md`
+  - 예: `docs/rule-issues-analysis.md`
+
+### Phase 번호 결정 기준
+
+Phase 번호 결정 기준은 `plan.mdc`의 "Phase 번호 결정 기준" 섹션을 참조하세요.
+
+### 파일 이름 예시
+
+- ✅ 올바른 예:
+  - `5-1-normalization-improvement.md` (Phase 5, Sub-task 1 관련)
+  - `4-2-risk-factors-opportunities-explanation.md` (Phase 4, Sub-task 2 관련)
+  - `normalization-improvement-plan.md` (일반 문서, Phase 번호 없음)
+
+- ❌ 잘못된 예:
+  - `phase-5-1-normalization.md` (불필요한 "phase-" 접두사)
+  - `5.1-normalization.md` (점 사용, 하이픈 사용해야 함)
+  - `Phase5-1-normalization.md` (대문자 "Phase" 포함)
+
+## 📝 문서 작성 가이드
+
+### 문서 구조
+
+일반적인 문서 구조 예시:
+
+```markdown
+# {문제 또는 주제}
+
+## 📋 개요
+{문제나 주제에 대한 간단한 설명}
+
+## 🔍 현재 상태
+{현재 상황 분석}
+
+## 💡 대안 탐색
+{고려할 수 있는 대안들}
+
+## 📝 제안 사항
+{제안하는 해결 방안}
+
+## ⚠️ 주의사항
+{주의해야 할 사항}
+
+## 📅 작성일
+{날짜}
+```
+
+### 문서 유형별 가이드
+
+#### 1. 문제 해결 계획 문서
+- 문제 정의
+- 현재 상태 분석
+- 해결 방안 제시
+- 대안 비교
+
+#### 2. 대안 탐색 문서
+- 여러 대안 나열
+- 각 대안의 장단점 분석
+- 추천 사항
+
+#### 3. 상태 확인 문서
+- 현재 구현 상태
+- 완료된 항목
+- 남은 작업
+- 이슈 및 문제점
+
+#### 4. 질문 답변 문서
+- 질문 내용
+- 답변 및 설명
+- 관련 참고 자료
+
+## 🔄 History 기록
+
+`docs/` 폴더에 문서를 생성하거나 수정할 때는 `plan/tasks/phase-{N}/phase-{N}.md` 파일의 History 섹션에 기록해야 합니다.
+
+**History 기록 규칙**: `agent.mdc`의 "Planning Mode 케이스 2" 섹션의 "Record in plan/tasks" 부분을 참조하세요.
+
+**History 형식**: `plan.mdc`의 "History 기록 형식" 섹션을 참조하세요.
+
+## 🔗 Phase 번호 변경 시 업데이트
+
+Phase 번호가 변경되면 `docs/` 폴더의 관련 문서도 업데이트해야 합니다:
+
+### 업데이트 프로세스
+
+1. **파일 이름 변경**: Phase 번호가 변경된 경우 파일 이름도 변경
+   - 예: Phase 5 → Phase 6 변경 시
+   - `docs/5-1-normalization-improvement.md` → `docs/6-1-normalization-improvement.md`
+
+2. **내용 내 참조 업데이트**: 문서 내용 내의 Phase 번호 참조도 업데이트
+   - "Phase 5" → "Phase 6"
+   - "5-1" → "6-1"
+
+3. **다른 문서 참조 확인**: 다른 `docs/` 문서에서 변경된 Phase를 참조하는 경우 해당 참조도 업데이트
+
+### 자동 업데이트 체크리스트
+
+- [ ] 파일 이름의 Phase 번호가 올바르게 업데이트되었는가?
+- [ ] 문서 내용 내의 Phase 번호 참조가 업데이트되었는가?
+- [ ] 다른 `docs/` 문서의 참조가 업데이트되었는가?
+- [ ] `plan/tasks/`의 History 기록이 올바른 Phase 번호를 참조하는가?
+
+## 📌 문서 관리 가이드
+
+### 문서 생성 시
+
+1. **Phase 번호 결정**: Phase 번호 결정 기준에 따라 번호 결정
+2. **파일 이름**: 명명 규칙에 따라 파일 이름 생성
+3. **내용 작성**: 문서 유형에 맞는 구조로 작성
+4. **History 기록**: `plan/tasks/phase-{N}/phase-{N}.md`에 History 기록
+
+### 문서 수정 시
+
+1. **기존 내용 확인**: 기존 문서 내용을 검토하고 필요한 부분만 수정
+2. **일관성 유지**: 기존 문서의 구조와 형식 유지
+3. **History 업데이트**: `plan/tasks/`의 History 섹션 업데이트
+
+### 문서 삭제 시
+
+1. **의존성 확인**: 다른 문서에서 삭제할 문서를 참조하는지 확인
+2. **참조 정리**: 다른 문서의 참조 제거 또는 업데이트
+3. **History 기록**: 삭제 사항을 History에 기록
+
+## ⚠️ 주의사항
+
+1. **계획 문서와의 구분**: `docs/`는 중간 확인용이므로, 실제 구현 계획은 `plan/tasks/`에 기록해야 합니다.
+2. **Phase 번호 일관성**: Phase 번호가 변경되면 반드시 관련 문서를 업데이트해야 합니다.
+3. **History 기록**: `docs/` 문서를 생성/수정할 때는 반드시 `plan/tasks/`의 History에 기록해야 합니다.
+4. **파일 이름 규칙**: Phase 번호는 하이픈(-)을 사용하고, 점(.)을 사용하지 않습니다.
+5. **중복 방지**: 동일한 문제에 대한 문서가 이미 존재하는지 확인하고, 필요시 기존 문서를 수정하는 것을 고려합니다.
+
+## 🔍 문서 검색 및 관리
+
+### 파일 이름으로 검색
+- Phase 번호로 검색: `docs/5-*.md` (Phase 5 관련 모든 문서)
+- Sub-task 번호로 검색: `docs/5-1-*.md` (Phase 5, Sub-task 1 관련 문서)
+
+### 내용으로 검색
+- 특정 키워드나 문제를 다루는 문서 찾기
+- 관련 Phase의 `plan/tasks/` 문서와 함께 검토
+
+## 📚 관련 규칙 파일
+
+- `agent.mdc`: Planning Mode에서 `docs/` 문서 생성 규칙
+- `tasks.mdc`: `plan/tasks/` 문서와의 관계 및 동기화 규칙
+- `plan.mdc`: `plan/plan.md`와의 관계 규칙

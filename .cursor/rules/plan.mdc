@@ -1,0 +1,409 @@
+---
+globs: plan/plan.md
+alwaysApply: false
+---
+# Implementation Plan (구현 계획) 작성 가이드
+
+이 문서는 `plan/plan.md` 파일 작성 및 수정에 대한 가이드입니다.
+
+## 📋 Plan의 목적
+
+`plan/plan.md`는 프로젝트의 구현 계획을 단계별로 정리한 문서입니다. 개발자가 프로젝트를 구현할 때 필요한 전체적인 설정, 데이터 구조, DB 구조, 그리고 각 Phase별 수행 내용을 명확히 정의합니다.
+
+## 🔒 수정 규칙
+
+1. **사용자 승인 필수**: `plan/plan.md` 파일을 수정하기 전에 **반드시 사용자에게 승인을 받아야 합니다**.
+2. **연관 문서 동기화**: `plan/plan.md` 수정 시 다음 문서들도 함께 확인하고 필요시 수정:
+   - `plan/prd.md`: 기능 요구사항과 일치하는지 확인
+   - `plan/tasks/phase-{N}/`: 해당 Phase의 상세 구현 내용과 일치하는지 확인
+3. **일관성 유지**: 기존 문서의 구조와 형식을 유지해야 합니다.
+
+## 📋 공통 규칙
+
+### Phase 번호 체계
+
+- **메인 Phase**: `Phase N` (예: "Phase 4", "Phase 5")
+- **Sub-task**: `N-M` (하이픈 사용, 예: "4-1", "5-2")
+
+### Phase 번호 결정 기준
+
+문서를 생성하거나 Phase 번호를 결정할 때 다음 기준을 따릅니다:
+
+1. **사용자가 명시한 경우**: 그대로 사용
+2. **사용자가 명시하지 않은 경우**: 
+   - 관련된 기존 Phase를 찾아서 사용 (예: 정규화 관련 문제 → Phase 4 관련)
+   - 관련 Phase가 없으면 새로운 Phase 번호로 생성하거나 사용자에게 확인 요청
+3. **불명확한 경우**: 사용자에게 Phase 번호 확인 요청
+
+**적용 범위**:
+- Planning Mode에서 문서 생성 시
+- Implementation Mode에서 계획 파일이 없어 새로 생성할 때
+- 기타 Phase 번호를 결정해야 하는 모든 상황
+
+### Docs 디렉토리 역할
+
+`docs/` 디렉토리는 **구현 중 확인해야 할 내용, 대안 탐색, 질문에 대한 답변** 등을 기록하는 공간입니다.
+
+**핵심 특징**:
+- 바로 계획에 반영되지 않는 중간 확인용 문서
+- 문제 해결을 위한 대안 탐색 기록
+- 현재 상태 확인 및 분석 결과
+- 구현 전 검토 사항 및 질문에 대한 답변
+
+**`plan/tasks/`와의 차이점**:
+- `docs/`: 중간 확인, 대안 탐색, 질문 답변 (일회성, 특정 문제 해결용)
+- `plan/tasks/`: 실제 구현을 위한 계획 및 정보 (지속적 관리, 구현 가이드)
+
+### Phase/Sub-task 변경 시 일관성 유지
+
+Phase나 Sub-task가 추가, 변경, 삭제될 때는 반드시 다음 프로세스를 따라야 합니다:
+
+- **사용자 승인 필수**: Phase/Sub-task 추가/변경/삭제 전 반드시 사용자 승인 필요
+- **전체 문서 동기화**: 다음 문서들을 모두 동기화해야 함:
+  - `plan/plan.md`: Phase/Sub-task 섹션 추가/수정/삭제, 번호 재정렬
+  - `plan/prd.md`: 관련 기능 요구사항(FR-XX) 추가/수정/삭제
+  - `plan/tasks/phase-{N}/`: 관련 폴더 및 파일 추가/이름 변경/삭제
+  - `docs/`: 관련 문서의 Phase 번호 참조 업데이트
+- **번호 재정렬**: Phase나 Sub-task 번호가 변경되면 모든 관련 문서에서 번호를 일관되게 업데이트
+- **파일/폴더 이름 변경**: Phase 번호 변경 시 `plan/tasks/phase-{N}/` 폴더 이름도 변경
+- **참조 업데이트**: 다른 Phase에서 변경된 Phase를 참조하는 경우 해당 참조도 업데이트
+
+**상세 프로세스**: `tasks.mdc`의 "Phase/Sub-task 추가/변경/삭제 프로세스" 섹션을 참조하세요.
+
+### History 기록 형식
+
+모든 History는 `plan/tasks/phase-{N}/phase-{N}.md` 파일의 History 섹션에 통일된 형식으로 기록됩니다.
+
+#### 통일된 History 형식
+
+```markdown
+## 📝 History
+
+### {Date} - {Summary}
+- **User Request**: {Brief description of what the user requested}
+- **Created/Modified Files**: (선택적, 파일 생성/수정 시)
+  - `{file_path_1}` - {description}
+  - `{file_path_2}` - {description}
+- **Generated Document**: (선택적, docs/ 문서 생성 시) `docs/{filename}.md`
+- **Synchronized Files**: (선택적, 문서 동기화 시)
+  - `plan/plan.md` - {description of synchronization}
+  - `plan/prd.md` - {description of synchronization}
+- **Related Plan Document**: (선택적, 관련 계획 문서) `docs/{planning_doc_name}.md`
+- **Purpose**: {What problem this addresses or what this modification addresses}
+- **Status**: {Created/Updated/Modified/Completed}
+```
+
+#### 필드 설명
+
+- **공통 필드** (모든 케이스에서 필수):
+  - `Date`: 날짜 (YYYY-MM-DD 형식)
+  - `Summary`: 요약 (간단한 한 줄 설명)
+  - `User Request`: 사용자 요청 내용
+  - `Purpose`: 목적 또는 해결하려는 문제
+  - `Status`: 상태 (Created/Updated/Modified/Completed)
+
+- **선택적 필드** (해당하는 경우에만 사용):
+  - `Created/Modified Files`: 생성되거나 수정된 파일 목록 (리스트 형식)
+  - `Generated Document`: 생성된 문서 (단일 파일, 주로 docs/ 문서)
+  - `Synchronized Files`: 동기화된 파일 목록 (리스트 형식, 주로 plan/plan.md, plan/prd.md)
+  - `Related Plan Document`: 관련 계획 문서 (단일 파일, 주로 docs/ 문서)
+
+#### 케이스별 사용 가이드
+
+- **Planning Mode 케이스 1** (Phase/Sub-task 계획):
+  - `Created/Modified Files`: `plan/tasks/phase-{N}/phase-{N}-{M}.md`, `plan/plan.md`, `plan/prd.md` (if applicable)
+  - `Status`: Created/Updated
+
+- **Planning Mode 케이스 2** (중간 점검/대안 탐색):
+  - `Generated Document`: `docs/{filename}.md`
+  - `Status`: Created/Updated
+
+- **Implementation Mode** (코드 구현):
+  - `Created/Modified Files`: 구현/수정된 코드 파일 목록
+  - `Related Plan Document`: 관련 docs/ 문서 (if applicable)
+  - `Status`: Implemented/Modified/Completed
+
+- **Tasks 문서 수정**:
+  - `Created/Modified Files`: 수정된 `plan/tasks/` 파일 목록
+  - `Synchronized Files`: 동기화된 `plan/plan.md`, `plan/prd.md`
+  - `Status`: Modified/Completed
+
+## 📝 Plan 구조 및 작성 가이드
+
+### 1. 데이터 구조 및 온톨로지 (선택적)
+- **목적**: 프로젝트에서 사용하는 데이터 구조, 데이터베이스 스키마, 그래프 온톨로지를 명확히 정의
+- **포함 내용**:
+  - **데이터베이스 구조**: DB 타입, 연결 정보, 스키마 정의
+  - **그래프 온톨로지**: Node 타입, Link 타입, 속성 정의
+  - **데이터 모델**: 입력/출력 데이터 형식, 중간 데이터 구조
+  - **파일 구조**: 데이터 저장 경로 및 파일 형식
+- **작성 팁**:
+  - 각 Phase에서 사용하는 데이터 구조를 명시
+  - 데이터 흐름을 명확히 표현
+  - 상세 스키마는 별도 문서 참조 명시
+- **예시 구조**:
+  ```markdown
+  ## 📊 데이터 구조 및 온톨로지
+  
+  ### 데이터베이스 구조
+  - **DB 타입**: FalkorDB (Graph Database)
+  - **연결 정보**: Host, Port, Graph Name
+  - **인덱스**: Node 타입별 id, ticker 인덱스
+  
+  ### 그래프 온톨로지
+  - **Node 타입**: Company, Product, Person, Document, Section, Risk, Opportunity, Event, Technology
+  - **Link 타입**: HAS_RISKS, HAS_OPPORTUNITIES, HAS_EVENTS, HAS_TECHNOLOGIES, IS_EXTRACTED_FROM, IS_INCLUDED, MAKE, HAS_RELATION, IS_MENTIONED_IN
+  - **Node 스타일**: Static (Company, Product, Person), Dynamic (나머지)
+  
+  ### 데이터 파일 구조
+  - `data/raw/{ticker}/{filing_type}/`: 원본 다운로드 파일
+  - `data/parsed/{ticker}/{filing_type}/`: 파싱된 섹션 데이터 (JSON)
+  - `data/extracted/{ticker}/{filing_type}/`: 추출된 엔티티 데이터 (JSON)
+  - `data/graph/{TICKER}_static_graph.json`: Static Graph 데이터
+  - `data/graph/{TICKER}_dynamic_graph.json`: Dynamic Graph 데이터
+  ```
+
+### 2. 프로젝트 타임라인
+- **목적**: 전체 프로젝트의 Phase별 예상 소요 시간을 한눈에 파악
+- **형식**: 표(Table) 형식
+- **포함 항목**: 단계, 작업 내용, 예상 소요 시간
+- **작성 팁**:
+  - 각 Phase의 핵심 작업을 간결하게 요약
+  - 현실적인 시간 추정 포함
+
+### 3. Phase 구조
+각 Phase는 다음과 같은 구조로 작성합니다:
+
+```markdown
+## Phase N: {Phase 이름} ({예상 시간})
+
+### N-1 {Sub-task 이름}
+**파일**: `{파일 경로}`
+
+{간단한 설명}
+
+**주요 기능**:
+1. {기능 1}
+2. {기능 2}
+
+### N-2 {Sub-task 이름}
+...
+
+### N-{M} {실행 스크립트}
+**파일**: `scripts/{스크립트명}.py`
+
+{스크립트 설명}
+```
+
+### 4. Phase 작성 가이드
+
+#### 4.1 Phase 개요
+- **목적**: Phase의 전체적인 목표와 범위 설명
+- **포함 내용**:
+  - Phase의 목적
+  - 입력 데이터와 출력 데이터 (데이터 구조 명시)
+  - 주요 작업 단계
+  - 사용하는 데이터 구조 및 스키마 (해당하는 경우)
+
+#### 4.2 Sub-task 정의
+- **목적**: Phase를 세부 작업으로 분해
+- **번호 체계**: `N-1`, `N-2`, `N-3`... 순차적으로 번호 부여 (하이픈 사용)
+- **각 Sub-task 구조**:
+  - **제목**: Sub-task 이름
+  - **파일 경로**: 생성/수정할 파일 명시
+  - **주요 기능**: 핵심 기능 나열
+  - **설명**: 간단한 설명 (상세 내용은 `plan/tasks/` 하위 파일 참조)
+  - **데이터 구조**: 입력/출력 데이터 형식 (해당하는 경우)
+
+#### 4.3 코드 예시
+- **원칙**: `plan/plan.md`에는 **핵심 코드 구조와 패턴만 포함**
+- **상세 구현**: 실제 상세 코드는 `plan/tasks/phase-{N}/` 하위 파일에 작성
+- **포함 내용**:
+  - 클래스/함수 시그니처
+  - 주요 메서드 이름
+  - 데이터 구조 예시 (JSON 스키마, Node/Link 구조 등)
+  - 간단한 사용 예시
+
+#### 4.4 실행 스크립트
+- **목적**: Phase 실행을 위한 스크립트 정의
+- **파일 위치**: `scripts/` 디렉토리
+- **포함 내용**:
+  - 스크립트의 역할
+  - 명령줄 인자 (argparse)
+  - 실행 방법
+
+### 5. 상세 구현 문서 분리
+
+#### 5.1 파일 구조
+```
+plan/
+├── plan.md                    # 전체 구현 계획 (고수준)
+├── prd.md                     # 제품 요구사항
+└── tasks/                     # 상세 구현 문서
+    # 역할: 실제 구현을 위한 계획 및 정보. 실제 구현에 반영된 또는 반영될 내용
+    ├── phase-1/
+    │   ├── phase-1.md         # Phase 1 전체 개요
+    │   ├── phase-1-1.md       # Phase 1-1 상세 구현
+    │   └── phase-1-2.md       # Phase 1-2 상세 구현
+    ├── phase-2/
+    │   ├── phase-2.md
+    │   └── phase-2-1.md
+    └── ...
+```
+
+**참고**: `docs/` 디렉토리 역할은 위의 "Docs 디렉토리 역할" 섹션을 참조하세요.
+
+#### 5.2 파일 명명 규칙
+- **전체 Phase 문서**: `phase-{N}.md`
+  - 예: `phase-5.md` (Phase 5 전체 개요)
+- **Sub-task 문서**: `phase-{N}-{M}.md`
+  - 예: `phase-5-1.md` (Phase 5-1 상세 구현)
+  - 예: `phase-5-2.md` (Phase 5-2 상세 구현)
+
+#### 5.3 상세 문서 작성 내용
+`plan/tasks/phase-{N}/` 하위 파일에는 다음 내용을 포함:
+
+1. **상세 알고리즘/프로세스**
+   - 단계별 처리 흐름
+   - 의사코드 또는 상세 로직 설명
+   - 예외 처리 방법
+
+2. **전체 코드 구현**
+   - 완전한 클래스/함수 구현
+   - 주석과 문서 문자열
+   - 에러 핸들링
+
+3. **데이터 구조 상세**
+   - 입력/출력 데이터 형식
+   - 중간 데이터 구조
+   - JSON 스키마 예시
+
+4. **설정 및 의존성**
+   - 필요한 환경 변수
+   - 외부 라이브러리 의존성
+   - 설정 파일 예시
+
+5. **테스트 케이스**
+   - 단위 테스트 예시
+   - 통합 테스트 시나리오
+   - 검증 방법
+
+### 6. Plan.md에서 상세 문서 참조
+
+각 Phase 섹션에서 상세 구현 문서를 참조하도록 명시:
+
+```markdown
+## Phase 5: Static Graph 생성 (2시간)
+
+> 📖 **상세 구현**: `plan/tasks/phase-5/` 폴더의 문서를 참고하세요.
+> - `phase-5.md`: Phase 5 전체 개요
+> - `phase-5-1.md`: Company Node 생성 상세
+> - `phase-5-2.md`: Product Node 생성 상세
+
+### 5-1 Company Node 생성
+**파일**: `app/services/graph_generator.py`
+
+[간단한 설명과 핵심 구조만 포함]
+```
+
+### 7. 실행 순서
+- **목적**: 전체 프로젝트 실행 순서를 명확히 정의
+- **형식**: 번호가 있는 목록 또는 코드 블록
+- **포함 내용**:
+  - 각 Phase 실행 명령어
+  - 예상 소요 시간
+  - 저장 위치
+
+### 8. 마일스톤 체크리스트
+- **목적**: 각 Phase의 완료 여부를 추적
+- **형식**: 체크박스 목록
+- **구조**:
+  - Phase별 체크박스
+  - Sub-task별 체크박스
+  - 완료 시 ✅ 표시
+
+### 9. 주의사항
+- **목적**: 구현 시 주의해야 할 사항 명시
+- **포함 내용**:
+  - API 제한
+  - 비용 고려사항
+  - 저장 공간 요구사항
+  - 성능 고려사항
+
+## ✍️ 작성 시 주의사항
+
+1. **고수준 vs 상세**: `plan/plan.md`는 고수준 계획, 상세 구현은 `plan/tasks/` 하위 파일에
+2. **일관성**: Phase 번호와 Sub-task 번호를 일관되게 사용
+3. **참조 명시**: 상세 문서가 있으면 반드시 참조 링크 포함
+4. **코드 최소화**: `plan/plan.md`에는 핵심 구조만, 상세 코드는 `plan/tasks/`에
+5. **파일 경로 명확성**: 생성/수정할 파일 경로를 정확히 명시
+6. **의존성 명시**: Phase 간 의존 관계를 명확히 표시
+7. **데이터 구조 명시**: 각 Phase에서 사용하는 데이터 구조, 스키마, 온톨로지를 명확히 기술
+8. **데이터 흐름**: Phase 간 데이터 흐름과 변환 과정을 명시
+
+## 🔄 업데이트 프로세스
+
+### Plan.md 수정 시
+
+1. **수정 요청 확인**: 사용자로부터 수정 요청 확인
+2. **승인 요청**: 수정 전 사용자에게 승인 요청
+3. **연관 문서 확인**: 다음 문서들 확인:
+   - `plan/prd.md`: 기능 요구사항과 일치하는지
+   - `plan/tasks/phase-{N}/`: 해당 Phase 상세 문서와 일치하는지
+4. **수정 수행**: 승인 후 내용 수정
+5. **동기화**: 필요시 연관 문서도 함께 수정
+6. **검토**: 수정 내용이 기존 구조와 일관성 있는지 확인
+
+### 상세 문서 생성/수정 시
+
+1. **Plan.md 확인**: `plan/plan.md`의 해당 Phase 내용 확인
+2. **파일 위치 확인**: `plan/tasks/phase-{N}/` 폴더 구조 확인
+3. **파일 명명**: 명명 규칙에 따라 파일 생성
+4. **내용 작성**: 상세 알고리즘, 전체 코드, 데이터 구조 등 포함
+5. **Plan.md 업데이트**: 필요시 `plan/plan.md`에 참조 링크 추가
+
+### Phase/Sub-task 추가/변경/삭제 시
+
+Phase/Sub-task 추가/변경/삭제 프로세스는 위의 "Phase/Sub-task 변경 시 일관성 유지" 섹션과 `tasks.mdc`의 "Phase/Sub-task 추가/변경/삭제 프로세스" 섹션을 참조하세요.
+
+## 📌 체크리스트
+
+Plan.md를 수정할 때 다음 사항을 확인하세요:
+
+- [ ] 사용자 승인을 받았는가?
+- [ ] 기존 문서 구조를 유지하는가?
+- [ ] Phase 번호와 Sub-task 번호가 일관성 있는가?
+- [ ] 상세 구현 문서 참조 링크를 포함했는가?
+- [ ] 파일 경로가 정확한가?
+- [ ] `plan/prd.md`와 내용이 일치하는가?
+- [ ] `plan/tasks/phase-{N}/` 하위 문서와 내용이 일치하는가?
+- [ ] Phase 간 의존 관계가 명확한가?
+- [ ] 실행 순서가 올바른가?
+
+## 🔗 연관 문서 관리
+
+### Plan.md와 PRD.md 동기화
+
+- **기능 요구사항**: `plan/prd.md`의 FR-XX와 `plan/plan.md`의 Phase가 일치해야 함
+- **기술 스택**: 두 문서의 기술 스택이 일치해야 함
+- **데이터 구조**: PRD의 데이터 모델과 Plan의 구현 계획이 일치해야 함
+
+### Plan.md와 Tasks 문서 동기화
+
+- **Phase 번호**: `plan/plan.md`의 Phase N과 `plan/tasks/phase-{N}/` 폴더가 일치해야 함
+- **Sub-task 번호**: `plan/plan.md`의 N-M과 `plan/tasks/phase-{N}/phase-{N}-{M}.md`가 일치해야 함 (하이픈 사용)
+- **파일 경로**: 두 문서에서 언급하는 파일 경로가 일치해야 함
+- **데이터 구조**: 두 문서의 데이터 구조 설명이 일치해야 함
+
+### 동기화 체크 방법
+
+1. **Phase별 검증**: 각 Phase마다 다음 확인:
+   - PRD의 해당 기능 요구사항 확인
+   - Tasks 하위 상세 문서 확인
+   - 파일 경로 일치 확인
+
+2. **의존성 검증**: Phase 간 의존 관계 확인:
+   - 이전 Phase의 출력이 다음 Phase의 입력인지
+   - 데이터 구조가 일치하는지
+
+3. **완료 상태 동기화**: 마일스톤 체크리스트와 실제 구현 상태 일치 확인
