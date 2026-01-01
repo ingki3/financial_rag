@@ -19,18 +19,20 @@
   - `Company`: 기업 정보 (ID: `{ticker}`)
   - `Product`: 제품/서비스 (ID: `product_{ticker}_{normalized_name}`)
   - `Person`: 인물 (ID: `person_{ticker}_{normalized_name}`)
+  - `Technology`: 기술 관련 정보 (ID: `tech_{ticker}_{normalized_name}`)
 - **Dynamic Node** (Phase 6에서 생성):
   - `Document`: SEC 공시 문서 (ID: `doc_{ticker}_{filing_type}_{accession_number}`)
   - `Section`: 파싱된 섹션 (ID: `section_{ticker}_{filing_type}_{year}_{section_name}`)
   - `Risk`: 위험 요소 (ID: `risk_{ticker}_{normalized_entity}_{year}`)
   - `Opportunity`: 기회 요소 (ID: `opp_{ticker}_{normalized_entity}_{year}`)
   - `Event`: 주요 이벤트 (ID: `event_{ticker}_{normalized_entity}_{year}`)
-  - `Technology`: 기술 관련 정보 (ID: `tech_{ticker}_{normalized_entity}_{year}`)
+  - `Technology`: 기술 관련 정보 (Dynamic, ID: `tech_{ticker}_{normalized_entity}_{year}`)
 
 #### Link 타입
 - **Static Links** (Phase 5):
   - `MAKE`: Company → Product
   - `HAS_RELATION`: Company → Person (role 속성 포함)
+  - `USES`: Company → Technology
 - **Dynamic Links** (Phase 6):
   - `IS_INCLUDED`: Section → Document
   - `IS_EXTRACTED_FROM`: Risk/Opportunity/Event/Technology → Section
@@ -41,8 +43,8 @@
   - `IS_MENTIONED_IN`: Product/Person/Company → Risk/Opportunity/Event/Technology (mention_context 속성 포함)
 
 #### Node 스타일
-- **Static**: Company, Product, Person (행위의 주체나 대상)
-- **Dynamic**: Document, Section, Risk, Opportunity, Event, Technology (정보성 노드)
+- **Static**: Company, Product, Person, Technology (행위의 주체나 대상, 정규화된 엔티티)
+- **Dynamic**: Document, Section, Risk, Opportunity, Event, Technology (정보성 노드, 시간/문서 컨텍스트 포함)
 
 **상세 스키마 정의**: `docs/5-2-graph-ontology-design.md` 참조
 
@@ -53,7 +55,7 @@
 - `data/extracted/{ticker}/{filing_type}/`: 추출된 엔티티 데이터 (JSON)
   - 구조: `{metadata: {...}, opportunities: [...], risks: [...], events: [...], technologies: [...], mentioned_products: [...], mentioned_persons: [...]}`
 - `data/graph/{TICKER}_static_graph.json`: Static Graph 데이터
-  - 구조: `{nodes: {Company: [...], Product: [...], Person: [...]}, links: [...]}`
+  - 구조: `{nodes: {Company: [...], Product: [...], Person: [...], Technology: [...]}, links: [...]}`
 - `data/graph/{TICKER}_dynamic_graph.json`: Dynamic Graph 데이터
   - 구조: `{nodes: {Document: [...], Section: [...], Risk: [...], Opportunity: [...], Event: [...], Technology: [...]}, links: [...]}`
 - `data/normalization_maps/{TICKER}_normalization_map.json`: 정규화 맵 데이터
@@ -71,7 +73,7 @@ Phase 4: Triplet 추출
   → data/extracted/{ticker}/{filing_type}/ (JSON: metadata + entities)
 
 Phase 5: Static Graph 생성
-  → data/graph/{TICKER}_static_graph.json (Company, Product, Person)
+  → data/graph/{TICKER}_static_graph.json (Company, Product, Person, Technology)
 
 Phase 6: Dynamic Graph 생성
   → data/graph/{TICKER}_dynamic_graph.json (Document, Section, Risk, Opportunity, Event, Technology)
@@ -82,616 +84,248 @@ Phase 7: Graph DB 저장
 
 ---
 
-## 📅 프로젝트 타임라인
+## Phase 1: 환경 설정
 
-| 단계 | 작업 내용 | 예상 소요 시간 |
-|------|----------|---------------|
-| Phase 1 | 환경 설정 | 2시간 |
-| Phase 2 | SEC 공시 다운로드 | 3시간 |
-| Phase 3 | 공시 파싱 및 텍스트 추출 | 3시간 |
-| Phase 4 | Knowledge Triplet 추출 | 4시간 |
-| Phase 5 | Static Graph 생성 (Company, Product, Person) | 2시간 |
-| Phase 6 | Dynamic Graph 생성 (Document, Section, Risk, Opp, Event, Tech + Links + Embedding) | 3시간 |
-| Phase 7 | Graph DB 저장 | 3시간 |
-| Phase 8 | 질의 응답 시스템 | 3시간 |
-| Phase 9 | 테스트 및 검증 | 2시간 |
-| **총계** | | **25시간** |
+### Phase 1 개요
 
----
+**목적**: 프로젝트 개발 및 실행에 필요한 환경을 구축합니다. Docker를 통한 FalkorDB 설치, Python 개발 환경 설정, 프로젝트 의존성 관리, 환경 변수 설정을 포함합니다.
 
-## Phase 1: 환경 설정 (2시간)
-
-> 📖 **상세 구현**: `plan/tasks/phase-1/` 폴더의 문서를 참고하세요.
-> - `phase-1.md`: Phase 1 전체 개요
-> - `phase-1-1.md`: FalkorDB 설치 및 실행 상세
-> - `phase-1-2.md`: Python 가상환경 및 의존성 설치 상세
-> - `phase-1-3.md`: requirements.txt 생성 상세
-> - `phase-1-4.md`: 환경 변수 설정 상세
+**참고 문서**: `plan/tasks/phase-1/phase-1.md` (입력/출력 데이터, 주요 작업 단계, Phase 간 의존성 등 상세 내용)
 
 ### 1.1 FalkorDB 설치 및 실행
-**목적**: Docker를 통한 FalkorDB 설치 및 실행
 
-**주요 작업**:
-- Docker 컨테이너 실행
-- 포트 설정 (6379, 3000)
-- 컨테이너 상태 확인
+**목적**: Docker를 사용하여 FalkorDB 그래프 데이터베이스를 설치하고 실행합니다.
 
-**파일**: 없음 (Docker 명령어 실행)
+**Description**: FalkorDB는 Redis 기반의 그래프 데이터베이스로, 프로젝트의 모든 그래프 데이터를 저장하는 핵심 인프라입니다.
+
+**참고 문서**: `plan/tasks/phase-1/phase-1-1.md` (파일 경로, 주요 기능, 데이터 구조, Docker 명령어 및 실행 방법 상세)
 
 ### 1.2 Python 가상환경 및 의존성 설치
-**목적**: Python 개발 환경 구축
 
-**주요 작업**:
-- 가상환경 생성
-- 의존성 설치
+**목적**: Python 개발 환경을 구축하고 프로젝트에 필요한 모든 의존성을 설치합니다.
 
-**파일**: `requirements.txt`
+**Description**: 가상환경을 사용하여 프로젝트별 의존성을 격리하고 관리합니다.
+
+**참고 문서**: `plan/tasks/phase-1/phase-1-2.md` (파일 경로, 주요 기능, 데이터 구조, 가상환경 생성 및 의존성 설치 명령어 상세)
 
 ### 1.3 requirements.txt 생성
-**목적**: 프로젝트 의존성 정의
 
-**주요 의존성**:
-- Core: graphiti-core[falkordb], sec-edgar-downloader, beautifulsoup4, lxml
-- LLM: openai, anthropic
-- Utilities: python-dotenv, tqdm, aiohttp
-- Development: pytest, pytest-asyncio
+**목적**: 프로젝트에 필요한 모든 Python 패키지와 버전을 정의합니다.
 
-**파일**: `requirements.txt`
+**Description**: 의존성 관리를 통해 프로젝트의 재현 가능한 환경을 보장합니다.
+
+**참고 문서**: `plan/tasks/phase-1/phase-1-3.md` (파일 경로, 주요 기능, 데이터 구조, requirements.txt 구조 및 작성 방법 상세)
 
 ### 1.4 환경 변수 설정
-**목적**: 프로젝트 설정 및 API 키 관리
 
-**주요 환경 변수**:
-- SEC_USER_AGENT: SEC EDGAR API 사용자 정보
-- FALKORDB_HOST, FALKORDB_PORT: FalkorDB 연결 정보
-- OPENAI_API_KEY, ANTHROPIC_API_KEY: LLM API 키
-- GRAPHITI_MODEL: Graphiti 모델 설정
+**목적**: 프로젝트 설정 및 외부 API 키를 환경 변수로 관리합니다.
 
-**파일**: `.env.example`, `.env`
+**Description**: 보안을 위해 API 키는 `.env` 파일에 저장하며, `.env.example`을 템플릿으로 제공합니다.
+
+**참고 문서**: `plan/tasks/phase-1/phase-1-4.md` (파일 경로, 주요 기능, 데이터 구조, 환경 변수 설정 방법 및 보안 주의사항 상세)
 
 ---
 
-## Phase 2: SEC 공시 다운로드 (3시간)
+## Phase 2: SEC 공시 다운로드
 
-> 📖 **상세 구현**: `plan/tasks/phase-2/` 폴더의 문서를 참고하세요.
-> - `phase-2.md`: Phase 2 전체 개요
-> - `phase-2-1.md`: 다운로더 모듈 구현 상세
-> - `phase-2-2.md`: 다운로드 스크립트 상세
+### Phase 2 개요
+
+**목적**: SEC EDGAR API를 통해 기업의 공시 자료(10-K, 10-Q, 8-K)를 다운로드합니다. 다운로드된 파일은 후속 Phase에서 파싱 및 분석에 사용됩니다.
+
+**참고 문서**: `plan/tasks/phase-2/phase-2.md` (입력/출력 데이터, 주요 작업 단계, Phase 간 의존성 등 상세 내용)
 
 ### 2.1 다운로더 모듈 구현
-**목적**: SEC EDGAR API를 통한 공시 자료 다운로드
 
-**주요 기능**:
-- 10-K, 10-Q, 8-K 공시 다운로드
-- 티커별 다운로드 관리
-- 다운로드된 파일 목록 조회
+**목적**: SEC EDGAR API를 통한 공시 자료 다운로드를 담당하는 모듈을 구현합니다.
 
-**입력 데이터**: SEC EDGAR API (환경변수: `SEC_USER_AGENT`)
+**Description**: `sec-edgar-downloader` 라이브러리를 활용하여 공시 파일을 다운로드하고, 로컬 파일 시스템에 저장합니다.
 
-**출력 데이터**: 
-- 형식: HTML/SGML 파일
-- 위치: `data/raw/{ticker}/{filing_type}/{accession_number}/`
-- 구조: 원본 SEC 공시 파일
-
-**파일**: `app/services/download/sec_downloader.py`
+**참고 문서**: `plan/tasks/phase-2/phase-2-1.md` (파일 경로, 주요 기능, 데이터 구조, 다운로더 모듈 전체 코드 및 사용법 상세)
 
 ### 2.2 다운로드 스크립트
-**목적**: 다운로더 모듈을 실행하는 스크립트
 
-**주요 기능**:
-- 환경 변수 로드
-- 다운로더 초기화
-- 전체 다운로드 실행
+**목적**: 다운로더 모듈을 실행하여 모든 티커의 공시 파일을 일괄 다운로드하는 스크립트입니다.
 
-**파일**: `scripts/01_download_filings.py`
+**Description**: 명령줄 인자를 통해 다운로드할 티커와 공시 유형을 지정할 수 있습니다.
+
+**참고 문서**: `plan/tasks/phase-2/phase-2-2.md` (파일 경로, 주요 기능, 데이터 구조, 스크립트 전체 코드, 실행 방법, 명령줄 인자 상세)
 
 ---
 
-## Phase 3: 공시 파싱 및 텍스트 추출 (3시간)
+## Phase 3: 공시 파싱 및 텍스트 추출
 
-> 📖 **상세 구현**: `plan/tasks/phase-3/` 폴더의 문서를 참고하세요.
-> - `phase-3.md`: Phase 3 전체 개요
-> - `phase-3-1.md`: 파서 모듈 구현 상세
-> - `phase-3-2.md`: 파싱 스크립트 상세
+### Phase 3 개요
+
+**목적**: HTML/SGML 형식의 SEC 공시 파일에서 주요 섹션을 추출하고 텍스트로 변환합니다. 파싱된 섹션 데이터는 Phase 4에서 Knowledge Triplet 추출에 사용됩니다.
+
+**참고 문서**: `plan/tasks/phase-3/phase-3.md` (입력/출력 데이터, 주요 작업 단계, Phase 간 의존성 등 상세 내용)
 
 ### 3.1 파서 모듈 구현
-**목적**: HTML/SGML 형식의 공시 파일에서 주요 섹션 추출
 
-**주요 기능**:
-- 10-K, 10-Q, 8-K 공시 유형별 섹션 패턴 정의
-- HTML 파싱 및 텍스트 추출
-- 섹션별 텍스트 추출
+**목적**: HTML/SGML 형식의 공시 파일을 파싱하여 주요 섹션을 추출하는 모듈을 구현합니다.
 
-**입력 데이터**:
-- 형식: HTML/SGML 파일
-- 위치: `data/raw/{ticker}/{filing_type}/`
+**Description**: BeautifulSoup과 lxml을 사용하여 HTML을 파싱하고, 공시 유형별 섹션 패턴에 따라 텍스트를 추출합니다.
 
-**출력 데이터**:
-- 형식: JSON
-- 위치: `data/parsed/{ticker}/{filing_type}/`
-- 구조:
-  ```json
-  {
-    "metadata": {
-      "ticker": "AAPL",
-      "filing_type": "10-K",
-      "accession_number": "...",
-      "file_path": "...",
-      "text_length": 12345
-    },
-    "sections": {
-      "business": "...",
-      "risk_factors": "...",
-      "mda": "..."
-    }
-  }
-  ```
-
-**파일**: `app/services/processing/filing_parser.py`
+**참고 문서**: `plan/tasks/phase-3/phase-3-1.md` (파일 경로, 주요 기능, 데이터 구조, 파서 모듈 전체 코드 및 섹션 패턴 정의 상세)
 
 ### 3.2 파싱 스크립트
-**목적**: 파서 모듈을 실행하여 모든 공시 파일 파싱
 
-**주요 기능**:
-- 다운로드된 공시 파일 순회
-- 파서를 통한 섹션 추출
-- JSON 형식으로 저장
+**목적**: 파서 모듈을 실행하여 모든 다운로드된 공시 파일을 파싱하는 스크립트입니다.
 
-**파일**: `scripts/02_parse_filings.py`
+**Description**: 명령줄 인자를 통해 파싱할 티커와 공시 유형을 지정할 수 있습니다.
+
+**참고 문서**: `plan/tasks/phase-3/phase-3-2.md` (파일 경로, 주요 기능, 데이터 구조, 스크립트 전체 코드, 실행 방법, 명령줄 인자 상세)
 
 ---
 
-## Phase 4: Knowledge Triplet 추출 (4시간)
+## Phase 4: Knowledge Triplet 추출
 
-> 📖 **상세 구현**: `plan/tasks/phase-4/` 폴더의 문서를 참고하세요.
-> - `phase-4.md`: Phase 4 전체 개요
-> - `phase-4-1.md`: 추출기 모듈 구현 상세
-> - `phase-4-2.md`: 추출 스크립트 상세
+### Phase 4 개요
+
+**목적**: LLM을 활용하여 파싱된 공시 섹션에서 Knowledge Triplet을 추출합니다. 기회 요소, 리스크 요소, 주요 이벤트, 기술, 그리고 언급된 제품/인물/기업을 구조화된 형태로 추출하여 그래프 생성에 사용합니다.
+
+**참고 문서**: `plan/tasks/phase-4/phase-4.md` (입력/출력 데이터, 주요 작업 단계, Phase 간 의존성 등 상세 내용)
 
 ### 4.1 추출기 모듈 구현
-**목적**: LLM을 활용한 Knowledge Triplet 추출
 
-**주요 기능**:
-- 기회 요소 (Opportunities) 추출
-- 리스크 요소 (Risks) 추출
-- 주요 이벤트 (Key Events) 추출
-- 전략 (Strategies) 추출
-- 재무 지표 (Financial Metrics) 추출
-- 제품/인물/기업 언급 추출
+**목적**: LLM을 활용하여 파싱된 섹션 텍스트에서 Knowledge Triplet을 추출하는 모듈을 구현합니다.
 
-**입력 데이터**:
-- 형식: JSON (파싱된 섹션 데이터)
-- 위치: `data/parsed/{ticker}/{filing_type}/`
-- 내용: 섹션별 텍스트
+**Description**: Gemini의 Structured Output 기능을 사용하여 구조화된 데이터를 추출합니다.
 
-**출력 데이터**:
-- 형식: JSON
-- 위치: `data/extracted/{ticker}/{filing_type}/`
-- 구조:
-  ```json
-  {
-    "metadata": {
-      "ticker": "AAPL",
-      "filing_type": "10-K",
-      "accession_number": "...",
-      "section": "risk_factors"
-    },
-    "opportunities": [{"entity": "...", "description": "..."}],
-    "risks": [{"entity": "...", "description": "..."}],
-    "events": [{"entity": "...", "date": "...", "description": "..."}],
-    "technologies": [{"entity": "...", "description": "..."}],
-    "mentioned_products": ["iPhone 15", "iPad Pro"],
-    "mentioned_persons": ["Tim Cook"],
-    "mentioned_companies": ["Samsung"]
-  }
-  ```
-
-**파일**: `app/services/processing/triplet_extractor.py`
+**참고 문서**: `plan/tasks/phase-4/phase-4-1.md` (파일 경로, 주요 기능, 데이터 구조, 추출기 모듈 전체 코드, LLM 프롬프트 구조, Pydantic 모델 정의 상세)
 
 ### 4.2 추출 스크립트
-**목적**: 추출기 모듈을 실행하여 모든 파싱된 파일에서 Triplet 추출
 
-**주요 기능**:
-- 파싱된 파일 순회
-- LLM을 통한 Triplet 추출
-- JSON 형식으로 저장
+**목적**: 추출기 모듈을 실행하여 모든 파싱된 파일에서 Knowledge Triplet을 추출하는 스크립트입니다.
 
-**파일**: `scripts/03_extract_triplets.py`
+**Description**: 명령줄 인자를 통해 추출할 티커와 공시 유형을 지정할 수 있습니다.
+
+**참고 문서**: `plan/tasks/phase-4/phase-4-2.md` (파일 경로, 주요 기능, 데이터 구조, 스크립트 전체 코드, 실행 방법, 명령줄 인자 상세)
 
 ---
 
-## Phase 5: Static Graph 생성 (2시간)
+## Phase 5: Static Graph 생성
 
-> 📖 **상세 구현**: `plan/tasks/phase-5/` 폴더의 문서를 참고하세요.
-> - `phase-5.md`: Phase 5 전체 개요
-> - `phase-5-1.md`: Company Node 생성 상세
-> - `phase-5-2.md`: Product Node 생성 상세
-> - `phase-5-3.md`: Person Node 생성 상세
-> - `phase-5-4.md`: Static Link 생성 상세
-> - `phase-5-5.md`: 생성 스크립트 상세
+### Phase 5 개요
 
-### 5.1 데이터 파이프라인 구조
-```
-Extracted Data
-    ↓
-1. Static Node 생성 (Company, Product, Person)
-    → {TICKER}_static_graph.json
-    ↓
-2. Dynamic Node 생성 (Risk, Opportunity, Event, Technology, Section, Document)
-    → {TICKER}_dynamic_graph.json
-    ↓
-3. Link 생성 (Static ↔ Static, Dynamic ↔ Dynamic, Static ↔ Dynamic)
-    → 각 JSON 파일에 links 배열로 저장
-    ↓
-4. Graph DB 적재 (Cypher 쿼리 변환)
-```
+**목적**: 추출된 데이터에서 Static Graph를 생성하는 단계입니다. Static Graph는 Company, Product, Person, Technology 노드와 이들 간의 관계를 포함합니다. 모든 노드 생성 후 정규화 단계를 거쳐 표준 키워드로 통일합니다.
 
-### 5.2 Static Graph 생성 모듈 구현
-**파일**: `app/services/processing/graph_generator.py`
+**참고 문서**: `plan/tasks/phase-5/phase-5.md` (입력/출력 데이터, 주요 작업 단계, Phase 간 의존성, 사용하는 데이터 구조 등 상세 내용)
 
-**입력 데이터**:
-- 형식: JSON (추출된 엔티티 데이터)
-- 위치: `data/extracted/{ticker}/{filing_type}/`
-- 사용 필드: `mentioned_products`, `mentioned_persons`
+### 5.1 Company Node 생성
 
-**출력 데이터**:
-- 형식: JSON
-- 위치: `data/graph/{TICKER}_static_graph.json`
-- 구조:
-  ```json
-  {
-    "nodes": {
-      "Company": [{
-        "id": "AAPL",
-        "node_type": "Company",
-        "ticker": "AAPL",
-        "name": "Apple Inc.",
-        "sector": "Technology",
-        "node_style": "static"
-      }],
-      "Product": [{
-        "id": "product_aapl_iphone_15_pro",
-        "node_type": "Product",
-        "name": "iPhone 15 Pro",
-        "node_style": "static"
-      }],
-      "Person": [{
-        "id": "person_aapl_tim_cook",
-        "node_type": "Person",
-        "name": "Tim Cook",
-        "node_style": "static"
-      }]
-    },
-    "links": [
-      {
-        "from": "AAPL",
-        "to": "product_aapl_iphone_15_pro",
-        "relationship_type": "MAKE"
-      },
-      {
-        "from": "AAPL",
-        "to": "person_aapl_tim_cook",
-        "relationship_type": "HAS_RELATION",
-        "role": "CEO"
-      }
-    ]
-  }
-  ```
+**목적**: 각 티커에 대해 Company 노드를 생성합니다.
 
-**주요 기능**:
-1. **Company Node 생성**: 티커당 1개, ID: `{ticker}`
-2. **Product Node 생성**: `mentioned_products`에서 중복 제거, 정규화 적용, ID: `product_{ticker}_{normalized_name}`
-3. **Person Node 생성**: `mentioned_persons`에서 중복 제거, 정규화 적용, ID: `person_{ticker}_{normalized_name}`
-4. **Static Link 생성**: MAKE (Company → Product), HAS_RELATION (Company → Person)
+**Description**: 티커당 1개의 Company 노드를 생성하며, 티커 정보를 기반으로 회사명, 섹터, 설명 등을 포함합니다.
 
-### 5.3 생성 스크립트
-**파일**: `scripts/04_generate_static_graph.py`
+**참고 문서**: `plan/tasks/phase-5/phase-5-1.md` (파일 경로, 주요 기능, 데이터 구조, Company Node 생성 함수 전체 코드 등 상세 내용)
 
-**주요 기능**:
-- 티커별 Static Graph 생성
-- JSON 파일로 저장
+### 5.2 Product Node 생성
+
+**목적**: 추출된 데이터에서 언급된 제품을 수집하여 Product 노드를 생성합니다.
+
+**Description**: `mentioned_products` 필드에서 제품명을 수집하고, 중복을 제거한 후 Product 노드를 생성합니다. 정규화는 Phase 5.5에서 수행됩니다.
+
+**참고 문서**: `plan/tasks/phase-5/phase-5-2.md` (파일 경로, 주요 기능, 데이터 구조, Product Node 생성 함수 전체 코드, 필터링 로직, 분류 규칙 상세)
+
+### 5.3 Person Node 생성
+
+**목적**: 추출된 데이터에서 언급된 인물을 수집하여 Person 노드를 생성합니다.
+
+**Description**: `mentioned_persons` 필드에서 인물명을 수집하고, 중복을 제거한 후 Person 노드를 생성합니다. 정규화는 Phase 5.5에서 수행됩니다.
+
+**참고 문서**: `plan/tasks/phase-5/phase-5-3.md` (파일 경로, 주요 기능, 데이터 구조, Person Node 생성 함수 전체 코드 및 역할 추출 로직 상세)
+
+### 5.4 Technology Node 생성
+
+**목적**: 추출된 데이터에서 언급된 기술을 수집하여 Technology 노드를 생성합니다.
+
+**Description**: `technologies` 또는 `mentioned_technologies` 필드에서 기술 정보를 수집하고, 중복을 제거한 후 Technology 노드를 생성합니다. 정규화는 Phase 5.5에서 수행됩니다.
+
+**참고 문서**: `plan/tasks/phase-5/phase-5-4.md` (파일 경로, 주요 기능, 데이터 구조, Technology Node 생성 함수 전체 코드 상세)
+
+### 5.5 정규화 단계
+
+**목적**: 생성된 모든 Static Node (Company, Product, Person, Technology)에 대해 정규화를 수행합니다.
+
+**Description**: 정규화는 동일한 의미를 가진 다양한 표현을 표준 키워드로 통일하는 과정입니다.
+
+**참고 문서**: `plan/tasks/phase-5/phase-5-5.md` (파일 경로, 주요 기능, 데이터 구조, 정규화 함수 전체 코드, normalization_map 구조, LLM 매핑 프로세스 상세)
+
+### 5.6 Static Link 생성
+
+**목적**: Static Node 간의 관계를 나타내는 링크를 생성합니다.
+
+**Description**: Company와 Product, Person, Technology 간의 관계를 링크로 표현합니다.
+
+**참고 문서**: `plan/tasks/phase-5/phase-5-6.md` (파일 경로, 주요 기능, 데이터 구조, Link 생성 함수 전체 코드 및 role 추출 로직 상세)
+
+### 5.7 생성 스크립트
+
+**목적**: Static Graph 생성을 실행하는 스크립트입니다.
+
+**Description**: 티커별로 Static Graph를 생성하고 JSON 파일로 저장합니다.
+
+**참고 문서**: `plan/tasks/phase-5/phase-5-7.md` (파일 경로, 주요 기능, 데이터 구조, 스크립트 전체 코드, 실행 방법, 명령줄 인자 상세)
 
 ---
 
-## Phase 6: Dynamic Graph 생성 (3시간)
+## Phase 6: Dynamic Graph 생성
 
-> 📖 **상세 구현**: `plan/tasks/phase-6/` 폴더의 문서를 참고하세요.
-> - `phase-6.md`: Phase 6 전체 개요
-> - `phase-6-1.md`: Dynamic Node 생성 상세
-> - `phase-6-2.md`: Dynamic Link 생성 상세
-> - `phase-6-3.md`: Embedding 생성 상세
-> - `phase-6-4.md`: 생성 스크립트 상세
+### Phase 6 개요
 
-### 6.1 실행 단계 개요
+**목적**: 추출된 엔티티 데이터와 파싱된 섹션 데이터를 기반으로 Dynamic Graph를 생성합니다. Dynamic Graph는 Document, Section, Risk, Opportunity, Event, Technology 노드와 이들 간의 관계를 포함하며, 시간/문서 컨텍스트를 포함하는 정보성 노드입니다.
 
-| 단계 | 작업 내용 | 생성되는 노드/링크 |
-|------|----------|------------------|
-| **6.1** | Dynamic Node 생성 | Document, Section, Risk, Opportunity, Event, Technology |
-| **6.2** | IS_INCLUDED Link 생성 | Section → Document |
-| **6.3** | IS_EXTRACTED_FROM Link 생성 | Risk/Opp/Event/Tech → Section |
-| **6.4** | HAS_* Link 생성 | Company → Risk/Opp/Event/Tech |
-| **6.5** | IS_MENTIONED_IN Link 생성 | Product/Person/Company → Dynamic Node |
-| **6.6** | Embedding 생성 | 노드에 `description_embedding` 추가 (768차원) |
-
-### 6.2 Dynamic Node 생성
-**파일**: `app/services/processing/dynamic_graph_generator.py`
-
-**입력 데이터**:
-- 형식: JSON (추출된 엔티티 데이터, 파싱된 섹션 데이터)
-- 위치: `data/extracted/{ticker}/{filing_type}/`, `data/parsed/{ticker}/{filing_type}/`
-- 사용 필드: `opportunities`, `risks`, `events`, `technologies`, `sections`, `metadata`
-
-**출력 데이터**:
-- 형식: JSON
-- 위치: `data/graph/{TICKER}_dynamic_graph.json`
-- 구조:
-  ```json
-  {
-    "nodes": {
-      "Document": [{
-        "id": "doc_aapl_10-k_0000320193-24-000077",
-        "node_type": "Document",
-        "ticker": "AAPL",
-        "filing_type": "10-K",
-        "accession_number": "0000320193-24-000077",
-        "year": 2024,
-        "node_style": "dynamic"
-      }],
-      "Section": [{
-        "id": "section_aapl_10-k_2024_risk_factors",
-        "node_type": "Section",
-        "section_name": "risk_factors",
-        "ticker": "AAPL",
-        "year": 2024,
-        "node_style": "dynamic"
-      }],
-      "Risk": [{
-        "id": "risk_aapl_intense_competition_2024",
-        "node_type": "Risk",
-        "entity": "Intense Competition",
-        "description": "...",
-        "ticker": "AAPL",
-        "node_style": "dynamic",
-        "description_embedding": [0.123, 0.456, ...]
-      }]
-    },
-    "links": [...]
-  }
-  ```
-
-**주요 기능**:
-1. **Document Node 생성**: ID: `doc_{ticker}_{filing_type_lower}_{accession_number}`
-2. **Section Node 생성**: ID: `section_{ticker}_{filing_type_lower}_{year}_{section_name}`
-3. **Risk/Opportunity/Event/Technology Node 생성**: 각각 고유 ID 패턴 사용
-4. **Embedding 추가**: Risk, Opportunity, Event, Technology 노드에 `description_embedding` 필드 추가 (768차원)
-
-### 6.3 Dynamic Link 생성
-**주요 링크 타입**:
-- IS_INCLUDED: Section → Document
-- IS_EXTRACTED_FROM: Risk/Opp/Event/Tech → Section
-- HAS_RISKS, HAS_OPPORTUNITIES, HAS_EVENTS, HAS_TECHNOLOGIES: Company → Dynamic Node
-- IS_MENTIONED_IN: Product/Person/Company → Dynamic Node
-
-### 6.4 Embedding 생성
-**파일**: `app/services/processing/embedding_generator.py`
-
-**설정**:
-- 모델: Gemini `text-embedding-004` (768차원)
-- 배치 처리: 100개/배치
-
-### 6.5 생성 스크립트
-**파일**: `scripts/05_generate_dynamic_graph.py`
-
-**주요 기능**:
-- 티커별 Dynamic Graph 생성
-- Embedding 생성 옵션 지원
+**참고 문서**: `plan/tasks/phase-6/phase-6.md` (입력/출력 데이터, 주요 작업 단계, Phase 간 의존성, 사용하는 데이터 구조 등 상세 내용)
 
 ---
 
-## Phase 7: Graph DB 저장 (3시간)
+## Phase 7: Graph DB 저장
 
-> 📖 **상세 구현**: `plan/tasks/phase-7/` 폴더의 문서를 참고하세요.
-> - `phase-7.md`: Phase 7 전체 개요
-> - `phase-7-1.md`: Graph Loader 모듈 구현 상세
-> - `phase-7-2.md`: Cypher 쿼리 패턴 상세
-> - `phase-7-3.md`: 저장 스크립트 상세
+### Phase 7 개요
 
-### 7.1 개요
-Phase 5~6에서 생성된 Static/Dynamic Graph JSON 파일을 FalkorDB에 적재합니다.
+**목적**: Phase 5~6에서 생성된 Static/Dynamic Graph JSON 파일을 FalkorDB 그래프 데이터베이스에 적재합니다. 모든 노드와 링크를 Cypher 쿼리로 변환하여 데이터베이스에 저장합니다.
 
-**입력 데이터**:
-- 형식: JSON
-- 위치: 
-  - `data/graph/{TICKER}_static_graph.json` - Company, Product, Person 노드 및 MAKE, HAS_RELATION 링크
-  - `data/graph/{TICKER}_dynamic_graph.json` - Document, Section, Risk, Opportunity, Event, Technology 노드 및 모든 Dynamic 링크
-
-**출력 데이터**:
-- 형식: FalkorDB Graph Database
-- 연결 정보:
-  - Host: localhost (환경변수 `FALKORDB_HOST`)
-  - Port: 6379 (환경변수 `FALKORDB_PORT`)
-  - Graph Name: `financial_kg`
-- 저장 내용: 모든 Node와 Link가 Cypher 쿼리로 적재됨
-
-### 7.2 Graph Loader 모듈
-**파일**: `app/services/graph/graph_loader.py`
-
-**주요 기능**:
-- 인덱스 및 제약조건 생성
-- 노드 생성 (MERGE 사용하여 중복 방지)
-- 링크 생성 (MERGE 사용하여 중복 방지)
-- Static/Dynamic Graph 적재
-- 통계 조회
-
-### 7.3 Cypher 쿼리 패턴
-**노드 생성**: MERGE를 사용하여 중복 방지
-**링크 생성**: MATCH + MERGE를 사용하여 관계 생성
-
-### 7.4 저장 스크립트
-**파일**: `scripts/06_load_graph_to_db.py`
-
-**주요 기능**:
-- Static/Dynamic Graph JSON 파일 로드
-- FalkorDB에 적재
-- 검증 옵션 지원
-
-### 7.6 예상 적재량
-
-| 노드 타입 | 예상 수 |
-|----------|--------|
-| Company | 7 |
-| Product | ~210 |
-| Person | ~27 |
-| Document | ~134 |
-| Section | ~90 |
-| Risk | ~375 |
-| Opportunity | ~348 |
-| Event | ~464 |
-| Technology | ~382 |
-| **총 노드** | **~2,037** |
-
-| 링크 타입 | 예상 수 |
-|----------|--------|
-| MAKE | ~210 |
-| HAS_RELATION | ~27 |
-| IS_INCLUDED | ~186 |
-| IS_EXTRACTED_FROM | ~1,650 |
-| HAS_RISKS | ~395 |
-| HAS_OPPORTUNITIES | ~356 |
-| HAS_EVENTS | ~471 |
-| HAS_TECHNOLOGIES | ~428 |
-| IS_MENTIONED_IN | ~1,552 |
-| **총 링크** | **~5,275** |
+**참고 문서**: `plan/tasks/phase-7/phase-7.md` (입력/출력 데이터, 주요 작업 단계, Phase 간 의존성, 사용하는 데이터 구조 등 상세 내용)
 
 ---
 
-## Phase 8: 질의 응답 시스템 (3시간)
+## Phase 8: 질의 응답 시스템
 
-> 📖 **상세 구현**: `plan/tasks/phase-8/` 폴더의 문서를 참고하세요.
-> - `phase-8.md`: Phase 8 전체 개요
-> - `phase-8-1.md`: Intent 추출 구현 상세
-> - `phase-8-2.md`: Cypher 쿼리 빌더 구현 상세
-> - `phase-8-3.md`: Vector 검색 구현 상세
-> - `phase-8-4.md`: 답변 생성 구현 상세
-> - `phase-8-5.md`: API 엔드포인트 구현 상세
+### Phase 8 개요
 
-### 8.1 질의 엔진 구현
-**목적**: 자연어 질의를 처리하여 그래프 기반 답변 생성
+**목적**: 자연어 질의를 처리하여 그래프 기반 답변을 생성하는 시스템을 구현합니다. FalkorDB 그래프 데이터와 Embedding 벡터를 활용하여 하이브리드 검색을 수행하고, LLM을 통해 자연어 답변을 생성합니다.
 
-**입력 데이터**:
-- 형식: 자연어 질의 (문자열)
-- 예시: "애플의 기회 요소를 알려줘"
-
-**출력 데이터**:
-- 형식: 구조화된 답변 (스트리밍)
-- 구조:
-  ```json
-  {
-    "answer": "...",
-    "sources": [
-      {
-        "document_id": "doc_aapl_10-k_...",
-        "section_id": "section_aapl_10-k_2024_business",
-        "entity": "..."
-      }
-    ]
-  }
-  ```
-
-**주요 기능**:
-- Intent 추출 (Gemini Structured Output)
-- Cypher 쿼리 빌더 (FalkorDB 그래프 쿼리)
-- Vector 검색 (하이브리드: Graph + Embedding)
-- 답변 생성 (스트리밍)
-
-**데이터 소스**:
-- FalkorDB 그래프 데이터 (Node, Link)
-- Embedding 벡터 (의미 기반 검색)
-
-**파일**: `app/services/query/query_engine.py`
-
-### 8.2 API 엔드포인트
-**파일**: `app/api/routes/answer.py`
-
-**주요 기능**:
-- `/answer` 엔드포인트 (스트리밍 답변)
-- FastAPI 기반 REST API
-- Server-Sent Events (SSE) 지원
+**참고 문서**: `plan/tasks/phase-8/phase-8.md` (입력/출력 데이터, 주요 작업 단계, Phase 간 의존성, 사용하는 데이터 구조 등 상세 내용)
 
 ---
 
-## Phase 9: 테스트 및 검증 (2시간)
+## Phase 9: 테스트 및 검증
 
-> 📖 **상세 구현**: `plan/tasks/phase-9/` 폴더의 문서를 참고하세요.
-> - `phase-9.md`: Phase 9 전체 개요
-> - `phase-9-1.md`: 단위 테스트 상세
-> - `phase-9-2.md`: 통합 테스트 상세
-> - `phase-9-3.md`: 검증 시나리오 상세
+### Phase 9 개요
 
-### 9.1 단위 테스트
-**목적**: 각 모듈의 개별 기능 검증
+**목적**: 전체 시스템의 기능과 성능을 검증합니다. 단위 테스트, 통합 테스트, 그리고 실제 사용 시나리오를 통한 검증을 수행합니다.
 
-**테스트 파일**:
-- `tests/test_downloader.py`: 다운로더 모듈 테스트
-- `tests/test_parser.py`: 파서 모듈 테스트
-- `tests/test_extractor.py`: 추출기 모듈 테스트
-
-### 9.2 통합 테스트
-**목적**: 전체 시스템 통합 검증
-
-**테스트 파일**: `tests/test_integration.py`
-
-### 9.3 검증 시나리오
-**주요 테스트 케이스**:
-- TC-01: "애플의 기회 요소를 알려줘"
-- TC-02: "테슬라의 리스크는?"
-- TC-03: "구글의 AI 전략"
-- TC-04: "엔비디아 vs AMD 비교"
+**참고 문서**: `plan/tasks/phase-9/phase-9.md` (입력/출력 데이터, 주요 작업 단계, Phase 간 의존성, 사용하는 데이터 구조 등 상세 내용)
 
 ---
 
 ## 🚀 실행 순서
 
-```bash
-# 1. 환경 설정
-cp .env.example .env
-# .env 파일 수정 (API 키 설정)
+각 Phase의 실행 스크립트와 상세 실행 방법은 해당 Phase의 tasks 문서를 참고하세요.
 
-# 2. FalkorDB 시작
-docker run -d --name falkordb -p 6379:6379 -p 3000:3000 falkordb/falkordb:latest
+**실행 순서**:
+1. Phase 1: 환경 설정 (FalkorDB, Python 환경, 의존성, 환경 변수)
+2. Phase 2: SEC 공시 다운로드 (`scripts/01_download_filings.py`)
+3. Phase 3: 공시 파싱 (`scripts/02_parse_filings.py`)
+4. Phase 4: Knowledge Triplet 추출 (`scripts/03_extract_triplets.py`)
+5. Phase 5: Static Graph 생성 (`scripts/04_generate_static_graph.py`)
+6. Phase 6: Dynamic Graph 생성 (`scripts/05_generate_dynamic_graph.py`)
+7. Phase 7: Graph DB 저장 (`scripts/06_load_graph_to_db.py`)
+8. Phase 8: 질의 응답 시스템 (API 서버 실행)
+9. Phase 9: 테스트 및 검증
 
-# 3. 의존성 설치
-pip install -r requirements.txt
-
-# 4. 공시 다운로드 (10-K, 10-Q, 8-K)
-python scripts/01_download_filings.py
-# 예상 소요 시간: 30분 ~ 1시간 (API 제한으로 인해)
-# 저장 위치: ./data/raw/{ticker}/{filing_type}/
-
-# 5. 파싱
-python scripts/02_parse_filings.py
-# 저장 위치: ./data/parsed/{ticker}/{filing_type}/
-
-# 6. 트리플렛 추출
-python scripts/03_extract_triplets.py
-# 저장 위치: ./data/extracted/{ticker}/{filing_type}/
-
-# 7. Static Graph 생성 (Company, Product, Person 노드)
-python scripts/05_generate_static_graph.py --ticker AAPL TSLA NVDA
-# 저장 위치: ./data/graph/{TICKER}_static_graph.json
-
-# 8. Dynamic Graph 생성 (Document, Section, Risk, Opp, Event, Tech 노드 + 링크)
-python scripts/06_generate_dynamic_graph.py --ticker AAPL TSLA NVDA
-# 옵션: --with-embedding (Embedding 생성 포함)
-# 저장 위치: ./data/graph/{TICKER}_dynamic_graph.json
-
-# 9. Graph DB 적재
-python scripts/07_populate_graph.py
-# FalkorDB에 노드 및 링크 적재
-
-# 10. 질의 시스템 실행
-python scripts/08_query_interface.py
-```
+**상세 실행 방법**: 각 Phase의 tasks 문서 (`plan/tasks/phase-{N}/phase-{N}-{M}.md`)에서 스크립트 전체 코드 및 실행 방법을 확인하세요.
 
 ---
 
