@@ -1,9 +1,122 @@
 ---
 alwaysApply: true
 ---
-# Graph Development Rules
+# LangGraph-based agents Development Rules
 
-This document outlines the standards for creating and maintaining LangGraph-based agents in this project, based on the structure of `app/graph/stock_analyzer.py`.
+
+## 📋 Project Planning and Documentation
+
+### Plan and PRD References
+1. **Always reference plan files**: Before starting any work, always check and reference:
+   - `plan/prd.md` - Product Requirements Document
+   - `plan/plan.md` - Implementation plan with Phases and sub-tasks
+2. **Phase numbering**: Phase 번호 체계는 `plan.mdc`의 "Phase 번호 체계" 섹션을 참조하세요.
+3. **Modification approval**: Before modifying `plan/prd.md` or `plan/plan.md`, **always get user approval first**.
+4. **Phase/Sub-task 변경 시 일관성 유지**: Phase/Sub-task 변경 시 일관성 유지 프로세스는 `plan.mdc`의 "Phase/Sub-task 변경 시 일관성 유지" 섹션을 참조하세요.
+
+### Working Modes
+
+#### Planning Mode (계획을 세워달라)
+When the user requests planning or problem-solving direction:
+- **DO NOT** write code or execute scripts
+- **DO** provide problem-solving direction and create a planning document
+
+Planning Mode는 요청 유형에 따라 두 가지 케이스로 구분됩니다:
+
+##### 케이스 1: Phase 또는 Sub-task 계획 요청
+Phase나 Sub-task의 구현 계획을 세워달라는 요청인 경우:
+- **Save location**: `plan/tasks/phase-{N}/`, `plan/plan.md`, `plan/prd.md`
+- **파일 존재 여부 확인**: 
+  - `plan/tasks/phase-{N}/` 폴더가 존재하는지 확인
+  - `plan/tasks/phase-{N}/phase-{N}.md` 파일이 존재하는지 확인
+  - **파일/폴더가 없는 경우**: 먼저 생성 (명명 규칙은 `plan.mdc` 참조)
+- **작업 내용**:
+  - `plan/tasks/phase-{N}/phase-{N}-{M}.md`: Sub-task 상세 구현 계획 작성
+  - `plan/tasks/phase-{N}/phase-{N}.md`: Phase 전체 개요 작성 (필요시, 없으면 생성)
+  - `plan/plan.md`: 해당 Phase/Sub-task 섹션 추가 또는 업데이트
+  - `plan/prd.md`: 관련 기능 요구사항(FR-XX) 추가 또는 업데이트 (필요시)
+- **사용자 승인 필수**: `plan/plan.md`와 `plan/prd.md` 수정 전 반드시 사용자 승인 필요
+- **Phase numbering 결정 기준**: `plan.mdc`의 "Phase 번호 결정 기준" 섹션을 참조하세요.
+- **History 기록**: `plan/tasks/phase-{N}/phase-{N}.md` 파일의 History 섹션에 기록
+  - **History 형식**: `plan.mdc`의 "History 기록 형식" 섹션을 참조하세요.
+  - **케이스 1 사용 예시**:
+    ```markdown
+    ## 📝 History
+    
+    ### {Date} - {Planning Summary}
+    - **User Request**: {Brief description of what the user requested}
+    - **Created/Modified Files**: 
+      - `plan/tasks/phase-{N}/phase-{N}-{M}.md` - {description}
+      - `plan/plan.md` - {description}
+      - `plan/prd.md` - {description} (if applicable)
+    - **Purpose**: {What this planning addresses}
+    - **Status**: {Created/Updated}
+    ```
+
+##### 케이스 2: 중간 점검, 대안 탐색, 현황 파악 질문
+구현 중 확인해야 할 내용, 대안 탐색, 질문에 대한 답변인 경우:
+- **Save location**: `docs/` directory
+  - **역할**: `docs/` 디렉토리 역할은 `plan.mdc`의 "Docs 디렉토리 역할" 섹션을 참조하세요.
+- **File naming**: `{Phase numbering}-{problem to solve}.md`
+  - Example: `docs/5-1-normalization-improvement.md`
+- **Phase numbering 결정 기준**: `plan.mdc`의 "Phase 번호 결정 기준" 섹션을 참조하세요.
+- **승인 불필요**: `docs/` 하위 파일은 승인 없이 생성 및 수정 가능
+- **If file exists**: Review the existing plan file and modify if necessary based on the current situation
+- **Record in plan/tasks**: After creating the planning document in `docs/`, record the following in the corresponding `plan/tasks/phase-{N}/` file:
+  - **History section**: Add or update a "History" section in the `plan/tasks/phase-{N}/phase-{N}.md` file (모든 History는 Phase 전체 문서에 통합 기록)
+  - **History 형식**: `plan.mdc`의 "History 기록 형식" 섹션을 참조하세요.
+  - **케이스 2 사용 예시**:
+    ```markdown
+    ## 📝 History
+    
+    ### {Date} - {User Request Summary}
+    - **User Request**: {Brief description of what the user requested}
+    - **Generated Document**: `docs/{filename}.md`
+    - **Purpose**: {What problem this planning document addresses}
+    - **Status**: {Created/Updated}
+    ```
+  - **If the plan/tasks file doesn't exist**: Create it first following the naming convention from `plan.mdc`
+  - **File location**: Determine the appropriate `plan/tasks/phase-{N}/` file based on the Phase number in the planning document name
+
+#### Implementation Mode (코딩해달라)
+When the user requests coding or implementation:
+1. **Phase/Sub-task 확인 및 내용 파악**: 구현 전에 반드시 다음을 확인:
+   - 어떤 Phase에 속하는 작업인지 확인
+   - 어떤 Sub-task에 해당하는지 확인
+   - 해당 Phase/Sub-task의 계획 파일(`plan/tasks/phase-{N}/phase-{N}-{M}.md`) 확인
+   - `plan/plan.md`의 해당 Phase/Sub-task 섹션 확인
+   - 계획 내용을 파악하고 구현 범위 확인
+2. **계획 파일 존재 여부 확인**: 
+   - 해당 Phase/Sub-task의 계획 파일이 존재하는지 확인
+   - **계획 파일이 없는 경우**: 
+     - Planning Mode로 전환하여 먼저 계획을 세움
+     - Phase 번호 결정: `plan.mdc`의 "Phase 번호 결정 기준" 섹션을 참조하세요
+     - `plan/tasks/phase-{N}/phase-{N}-{M}.md` 파일 생성
+     - `plan/plan.md`의 해당 Phase/Sub-task 섹션 추가 또는 업데이트
+     - `plan/prd.md`의 관련 기능 요구사항 추가 또는 업데이트 (필요시)
+     - 계획 수립 완료 후 구현 진행
+3. **Follow the plan**: 계획 파일이 존재하는 경우, 계획 파일의 명세에 따라 구현
+4. **Code location**:
+   - **Batch jobs/scripts**: `scripts/` directory
+   - **Application features**: `app/` directory in appropriate subdirectories
+5. **Record in plan/tasks**: After implementing or modifying code, record the following in the corresponding `plan/tasks/phase-{N}/` file:
+   - **History section**: Add or update a "History" section in the `plan/tasks/phase-{N}/phase-{N}.md` file (모든 History는 Phase 전체 문서에 통합 기록)
+   - **History 형식**: `plan.mdc`의 "History 기록 형식" 섹션을 참조하세요.
+   - **Implementation Mode 사용 예시**:
+     ```markdown
+     ## 📝 History
+     
+     ### {Date} - {Implementation/Modification Summary}
+     - **User Request**: {Brief description of what the user requested}
+     - **Created/Modified Files**: 
+       - `{file_path_1}` - {description of changes}
+       - `{file_path_2}` - {description of changes}
+     - **Related Plan Document**: `docs/{planning_doc_name}.md` (if applicable)
+     - **Purpose**: {What problem this implementation/modification addresses}
+     - **Status**: {Implemented/Modified/Completed}
+     ```
+   - **If the plan/tasks file doesn't exist**: Create it first following the naming convention from `plan.mdc`
+   - **File location**: Determine the appropriate `plan/tasks/phase-{N}/` file based on the Phase number related to the implementation
 
 ## Project Structure
 
