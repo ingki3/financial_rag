@@ -107,8 +107,8 @@ Dynamic Node 간의 관계를 나타내는 링크를 생성합니다. Document, 
 
 ### 출력 데이터 구조
 - **IS_INCLUDED Link**:
-  ```python
-  {
+```python
+{
     "from": str,  # Section 노드 ID
     "to": str,  # Document 노드 ID
     "relationship_type": "IS_INCLUDED",
@@ -116,31 +116,31 @@ Dynamic Node 간의 관계를 나타내는 링크를 생성합니다. Document, 
     "metadata": {
       "section_order": int  # 섹션 순서
     }
-  }
-  ```
+}
+```
 
 - **IS_EXTRACTED_FROM Link**:
-  ```python
-  {
+```python
+{
     "from": str,  # Entity 노드 ID
     "to": str,  # Section 노드 ID
     "relationship_type": "IS_EXTRACTED_FROM"
-  }
-  ```
+}
+```
 
 - **HAS_* Link**:
-  ```python
-  {
+```python
+{
     "from": str,  # Company 노드 ID (티커)
     "to": str,  # Entity 노드 ID
     "relationship_type": str,  # HAS_RISKS, HAS_OPPORTUNITIES, HAS_EVENTS, HAS_TECHNOLOGIES
     "created_at": str
-  }
-  ```
+}
+```
 
 - **IS_MENTIONED_IN Link**:
-  ```python
-  {
+```python
+{
     "from": str,  # Static 노드 ID
     "to": str,  # Dynamic 노드 ID
     "relationship_type": "IS_MENTIONED_IN",
@@ -149,8 +149,8 @@ Dynamic Node 간의 관계를 나타내는 링크를 생성합니다. Document, 
     "metadata": {
       "mention_type": str  # 노드 타입
     }
-  }
-  ```
+}
+```
 
 ## 💻 코드 예시 및 전체 코드 구현
 
