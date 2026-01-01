@@ -1,5 +1,87 @@
 # Implementation Plan (구현 계획)
 
+## 📊 데이터 구조 및 온톨로지
+
+### 데이터베이스 구조
+- **DB 타입**: FalkorDB (Graph Database)
+- **연결 정보**: 
+  - Host: localhost (환경변수 `FALKORDB_HOST`)
+  - Port: 6379 (환경변수 `FALKORDB_PORT`)
+  - Graph Name: `financial_kg`
+- **인덱스**: 
+  - Node 타입별 `id` 인덱스
+  - Node 타입별 `ticker` 인덱스
+
+### 그래프 온톨로지
+
+#### Node 타입
+- **Static Node** (Phase 5에서 생성):
+  - `Company`: 기업 정보 (ID: `{ticker}`)
+  - `Product`: 제품/서비스 (ID: `product_{ticker}_{normalized_name}`)
+  - `Person`: 인물 (ID: `person_{ticker}_{normalized_name}`)
+- **Dynamic Node** (Phase 6에서 생성):
+  - `Document`: SEC 공시 문서 (ID: `doc_{ticker}_{filing_type}_{accession_number}`)
+  - `Section`: 파싱된 섹션 (ID: `section_{ticker}_{filing_type}_{year}_{section_name}`)
+  - `Risk`: 위험 요소 (ID: `risk_{ticker}_{normalized_entity}_{year}`)
+  - `Opportunity`: 기회 요소 (ID: `opp_{ticker}_{normalized_entity}_{year}`)
+  - `Event`: 주요 이벤트 (ID: `event_{ticker}_{normalized_entity}_{year}`)
+  - `Technology`: 기술 관련 정보 (ID: `tech_{ticker}_{normalized_entity}_{year}`)
+
+#### Link 타입
+- **Static Links** (Phase 5):
+  - `MAKE`: Company → Product
+  - `HAS_RELATION`: Company → Person (role 속성 포함)
+- **Dynamic Links** (Phase 6):
+  - `IS_INCLUDED`: Section → Document
+  - `IS_EXTRACTED_FROM`: Risk/Opportunity/Event/Technology → Section
+  - `HAS_RISKS`: Company → Risk
+  - `HAS_OPPORTUNITIES`: Company → Opportunity
+  - `HAS_EVENTS`: Company → Event
+  - `HAS_TECHNOLOGIES`: Company → Technology
+  - `IS_MENTIONED_IN`: Product/Person/Company → Risk/Opportunity/Event/Technology (mention_context 속성 포함)
+
+#### Node 스타일
+- **Static**: Company, Product, Person (행위의 주체나 대상)
+- **Dynamic**: Document, Section, Risk, Opportunity, Event, Technology (정보성 노드)
+
+**상세 스키마 정의**: `docs/5-2-graph-ontology-design.md` 참조
+
+### 데이터 파일 구조
+- `data/raw/{ticker}/{filing_type}/`: 원본 다운로드 파일 (HTML/SGML)
+- `data/parsed/{ticker}/{filing_type}/`: 파싱된 섹션 데이터 (JSON)
+  - 구조: `{metadata: {...}, sections: {...}}`
+- `data/extracted/{ticker}/{filing_type}/`: 추출된 엔티티 데이터 (JSON)
+  - 구조: `{metadata: {...}, opportunities: [...], risks: [...], events: [...], technologies: [...], mentioned_products: [...], mentioned_persons: [...]}`
+- `data/graph/{TICKER}_static_graph.json`: Static Graph 데이터
+  - 구조: `{nodes: {Company: [...], Product: [...], Person: [...]}, links: [...]}`
+- `data/graph/{TICKER}_dynamic_graph.json`: Dynamic Graph 데이터
+  - 구조: `{nodes: {Document: [...], Section: [...], Risk: [...], Opportunity: [...], Event: [...], Technology: [...]}, links: [...]}`
+- `data/normalization_maps/{TICKER}_normalization_map.json`: 정규화 맵 데이터
+  - 구조: `{metadata: {...}, categories: [...], filtered_terms: [...], normalization_rules: [...]}`
+
+### 데이터 흐름
+```
+Phase 2: SEC 공시 다운로드
+  → data/raw/{ticker}/{filing_type}/ (HTML/SGML)
+
+Phase 3: 공시 파싱
+  → data/parsed/{ticker}/{filing_type}/ (JSON: metadata + sections)
+
+Phase 4: Triplet 추출
+  → data/extracted/{ticker}/{filing_type}/ (JSON: metadata + entities)
+
+Phase 5: Static Graph 생성
+  → data/graph/{TICKER}_static_graph.json (Company, Product, Person)
+
+Phase 6: Dynamic Graph 생성
+  → data/graph/{TICKER}_dynamic_graph.json (Document, Section, Risk, Opportunity, Event, Technology)
+
+Phase 7: Graph DB 저장
+  → FalkorDB (Cypher 쿼리로 적재)
+```
+
+---
+
 ## 📅 프로젝트 타임라인
 
 | 단계 | 작업 내용 | 예상 소요 시간 |
@@ -19,377 +101,216 @@
 
 ## Phase 1: 환경 설정 (2시간)
 
+> 📖 **상세 구현**: `plan/tasks/phase-1/` 폴더의 문서를 참고하세요.
+> - `phase-1.md`: Phase 1 전체 개요
+> - `phase-1-1.md`: FalkorDB 설치 및 실행 상세
+> - `phase-1-2.md`: Python 가상환경 및 의존성 설치 상세
+> - `phase-1-3.md`: requirements.txt 생성 상세
+> - `phase-1-4.md`: 환경 변수 설정 상세
+
 ### 1.1 FalkorDB 설치 및 실행
-```bash
-# Docker를 통한 FalkorDB 실행
-docker run -d \
-  --name falkordb \
-  -p 6379:6379 \
-  -p 3000:3000 \
-  falkordb/falkordb:latest
-```
+**목적**: Docker를 통한 FalkorDB 설치 및 실행
+
+**주요 작업**:
+- Docker 컨테이너 실행
+- 포트 설정 (6379, 3000)
+- 컨테이너 상태 확인
+
+**파일**: 없음 (Docker 명령어 실행)
 
 ### 1.2 Python 가상환경 및 의존성 설치
-```bash
-# 가상환경 생성
-python -m venv venv
-source venv/bin/activate
+**목적**: Python 개발 환경 구축
 
-# 의존성 설치
-pip install -r requirements.txt
-```
+**주요 작업**:
+- 가상환경 생성
+- 의존성 설치
+
+**파일**: `requirements.txt`
 
 ### 1.3 requirements.txt 생성
-```
-# Core Dependencies
-graphiti-core[falkordb]>=0.5.0
-sec-edgar-downloader>=5.0.0
-beautifulsoup4>=4.12.0
-lxml>=5.0.0
+**목적**: 프로젝트 의존성 정의
 
-# LLM
-openai>=1.0.0
-anthropic>=0.20.0
+**주요 의존성**:
+- Core: graphiti-core[falkordb], sec-edgar-downloader, beautifulsoup4, lxml
+- LLM: openai, anthropic
+- Utilities: python-dotenv, tqdm, aiohttp
+- Development: pytest, pytest-asyncio
 
-# Utilities
-python-dotenv>=1.0.0
-tqdm>=4.66.0
-aiohttp>=3.9.0
+**파일**: `requirements.txt`
 
-# Development
-pytest>=8.0.0
-pytest-asyncio>=0.23.0
-```
+### 1.4 환경 변수 설정
+**목적**: 프로젝트 설정 및 API 키 관리
 
-### 1.4 환경 변수 설정 (.env.example)
-```
-# SEC EDGAR API
-SEC_USER_AGENT="Your Name your.email@example.com"
+**주요 환경 변수**:
+- SEC_USER_AGENT: SEC EDGAR API 사용자 정보
+- FALKORDB_HOST, FALKORDB_PORT: FalkorDB 연결 정보
+- OPENAI_API_KEY, ANTHROPIC_API_KEY: LLM API 키
+- GRAPHITI_MODEL: Graphiti 모델 설정
 
-# FalkorDB
-FALKORDB_HOST=localhost
-FALKORDB_PORT=6379
-
-# LLM (선택 - OpenAI 또는 Anthropic)
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-
-# Graphiti
-GRAPHITI_MODEL=gpt-4o-mini
-```
+**파일**: `.env.example`, `.env`
 
 ---
 
 ## Phase 2: SEC 공시 다운로드 (3시간)
 
+> 📖 **상세 구현**: `plan/tasks/phase-2/` 폴더의 문서를 참고하세요.
+> - `phase-2.md`: Phase 2 전체 개요
+> - `phase-2-1.md`: 다운로더 모듈 구현 상세
+> - `phase-2-2.md`: 다운로드 스크립트 상세
+
 ### 2.1 다운로더 모듈 구현
-**파일**: `app/services/sec_downloader.py`
+**목적**: SEC EDGAR API를 통한 공시 자료 다운로드
 
-```python
-from sec_edgar_downloader import Downloader
-from pathlib import Path
-import logging
-from typing import List
+**주요 기능**:
+- 10-K, 10-Q, 8-K 공시 다운로드
+- 티커별 다운로드 관리
+- 다운로드된 파일 목록 조회
 
-logger = logging.getLogger(__name__)
+**입력 데이터**: SEC EDGAR API (환경변수: `SEC_USER_AGENT`)
 
-class SECFilingDownloader:
-    """SEC EDGAR에서 10-K, 10-Q, 8-K 공시 자료를 다운로드하는 클래스"""
-    
-    TICKERS = ["AAPL", "AMZN", "TSLA", "GOOGL", "MSFT", "META", "NVDA"]
-    
-    # 공시 유형별 다운로드 설정
-    FILING_TYPES = {
-        "10-K": 3,   # 연간 보고서: 최근 3년
-        "10-Q": 12,  # 분기 보고서: 최근 12분기 (3년)
-        "8-K": 20,   # 수시 공시: 최근 20건
-    }
-    
-    def __init__(self, data_dir: str = "./data", user_agent: str = None):
-        self.data_dir = Path(data_dir)
-        self.user_agent = user_agent
-        self.downloader = Downloader(
-            company_name="FinancialKG",
-            email=user_agent.split()[-1] if user_agent else "user@example.com"
-        )
-    
-    def download_filing(self, ticker: str, filing_type: str, limit: int):
-        """특정 티커의 특정 유형 공시 다운로드"""
-        save_path = self.data_dir / ticker / filing_type
-        save_path.mkdir(parents=True, exist_ok=True)
-        
-        logger.info(f"Downloading {filing_type} for {ticker} (limit: {limit})...")
-        
-        self.downloader.get(
-            filing_type,
-            ticker,
-            limit=limit,
-            download_details=True
-        )
-    
-    def download_all_filings(self, ticker: str):
-        """특정 티커의 모든 유형 공시 다운로드"""
-        for filing_type, limit in self.FILING_TYPES.items():
-            self.download_filing(ticker, filing_type, limit)
-        
-    def download_all(self):
-        """모든 대상 기업의 모든 공시 다운로드"""
-        for ticker in self.TICKERS:
-            logger.info(f"=== Downloading filings for {ticker} ===")
-            self.download_all_filings(ticker)
-            
-    def get_downloaded_files(self, ticker: str, filing_type: str) -> List[Path]:
-        """다운로드된 파일 목록 반환"""
-        filing_dir = self.data_dir / ticker / filing_type
-        if not filing_dir.exists():
-            return []
-        return list(filing_dir.glob("**/*.htm")) + list(filing_dir.glob("**/*.html"))
-```
+**출력 데이터**: 
+- 형식: HTML/SGML 파일
+- 위치: `data/raw/{ticker}/{filing_type}/{accession_number}/`
+- 구조: 원본 SEC 공시 파일
+
+**파일**: `app/services/download/sec_downloader.py`
 
 ### 2.2 다운로드 스크립트
+**목적**: 다운로더 모듈을 실행하는 스크립트
+
+**주요 기능**:
+- 환경 변수 로드
+- 다운로더 초기화
+- 전체 다운로드 실행
+
 **파일**: `scripts/01_download_filings.py`
-
-```python
-#!/usr/bin/env python
-"""SEC 10-K, 10-Q, 8-K 공시 자료 다운로드 스크립트"""
-import os
-import logging
-from dotenv import load_dotenv
-from app.services.sec_downloader import SECFilingDownloader
-
-logging.basicConfig(level=logging.INFO)
-
-def main():
-    load_dotenv()
-    
-    downloader = SECFilingDownloader(
-        data_dir="./data",
-        user_agent=os.getenv("SEC_USER_AGENT")
-    )
-    
-    print("=" * 60)
-    print("SEC Filing Downloader")
-    print("=" * 60)
-    print(f"대상 기업: {', '.join(downloader.TICKERS)}")
-    print(f"공시 유형: 10-K (연간), 10-Q (분기), 8-K (수시)")
-    print("=" * 60)
-    
-    downloader.download_all()
-    
-    print("\n✅ 다운로드 완료!")
-    print("저장 위치: ./data/{ticker}/{filing_type}/")
-
-if __name__ == "__main__":
-    main()
-```
 
 ---
 
 ## Phase 3: 공시 파싱 및 텍스트 추출 (3시간)
 
+> 📖 **상세 구현**: `plan/tasks/phase-3/` 폴더의 문서를 참고하세요.
+> - `phase-3.md`: Phase 3 전체 개요
+> - `phase-3-1.md`: 파서 모듈 구현 상세
+> - `phase-3-2.md`: 파싱 스크립트 상세
+
 ### 3.1 파서 모듈 구현
-**파일**: `app/services/filing_parser.py`
+**목적**: HTML/SGML 형식의 공시 파일에서 주요 섹션 추출
 
-```python
-from bs4 import BeautifulSoup
-from pathlib import Path
-from typing import Dict, Optional
-import re
-import logging
+**주요 기능**:
+- 10-K, 10-Q, 8-K 공시 유형별 섹션 패턴 정의
+- HTML 파싱 및 텍스트 추출
+- 섹션별 텍스트 추출
 
-logger = logging.getLogger(__name__)
+**입력 데이터**:
+- 형식: HTML/SGML 파일
+- 위치: `data/raw/{ticker}/{filing_type}/`
 
-class FilingParser:
-    """10-K, 10-Q, 8-K 파일에서 주요 섹션을 추출하는 클래스"""
-    
-    # 공시 유형별 섹션 패턴
-    SECTION_PATTERNS = {
-        "10-K": {
-            "business": r"item\s*1[.\s]*business",
-            "risk_factors": r"item\s*1a[.\s]*risk\s*factors",
-            "mda": r"item\s*7[.\s]*management",
-        },
-        "10-Q": {
-            "mda": r"item\s*2[.\s]*management",
-            "risk_factors": r"item\s*1a[.\s]*risk\s*factors",
-            "financial_statements": r"item\s*1[.\s]*financial\s*statements",
-        },
-        "8-K": {
-            "results_operations": r"item\s*2\.02",
-            "other_events": r"item\s*8\.01",
-            "financial_exhibits": r"item\s*9\.01",
-        },
+**출력 데이터**:
+- 형식: JSON
+- 위치: `data/parsed/{ticker}/{filing_type}/`
+- 구조:
+  ```json
+  {
+    "metadata": {
+      "ticker": "AAPL",
+      "filing_type": "10-K",
+      "accession_number": "...",
+      "file_path": "...",
+      "text_length": 12345
+    },
+    "sections": {
+      "business": "...",
+      "risk_factors": "...",
+      "mda": "..."
     }
-    
-    def __init__(self, filing_path: str, filing_type: str = "10-K"):
-        self.filing_path = Path(filing_path)
-        self.filing_type = filing_type
-        self.content = None
-        self.raw_html = None
-        
-    def load(self) -> "FilingParser":
-        """파일 로드 및 HTML 파싱"""
-        with open(self.filing_path, 'r', encoding='utf-8', errors='ignore') as f:
-            self.raw_html = f.read()
-        soup = BeautifulSoup(self.raw_html, 'lxml')
-        self.content = soup.get_text(separator='\n')
-        return self
-    
-    def extract_section(self, section_name: str) -> str:
-        """특정 섹션의 텍스트 추출"""
-        patterns = self.SECTION_PATTERNS.get(self.filing_type, {})
-        pattern = patterns.get(section_name)
-        if not pattern or not self.content:
-            return ""
-        
-        # 섹션 시작 찾기
-        match = re.search(pattern, self.content, re.IGNORECASE)
-        if not match:
-            return ""
-            
-        start_pos = match.start()
-        # 다음 섹션까지 추출 (간단한 구현)
-        end_pos = min(start_pos + 50000, len(self.content))  # 최대 50k 문자
-        
-        return self.content[start_pos:end_pos]
-        
-    def extract_all_sections(self) -> Dict[str, str]:
-        """현재 공시 유형의 모든 주요 섹션 추출"""
-        patterns = self.SECTION_PATTERNS.get(self.filing_type, {})
-        return {
-            section: self.extract_section(section)
-            for section in patterns.keys()
-        }
-    
-    def get_full_text(self) -> str:
-        """전체 텍스트 반환"""
-        return self.content or ""
-    
-    def get_metadata(self) -> Dict[str, str]:
-        """공시 메타데이터 추출"""
-        return {
-            "file_path": str(self.filing_path),
-            "filing_type": self.filing_type,
-            "text_length": len(self.content) if self.content else 0,
-        }
-```
+  }
+  ```
+
+**파일**: `app/services/processing/filing_parser.py`
 
 ### 3.2 파싱 스크립트
+**목적**: 파서 모듈을 실행하여 모든 공시 파일 파싱
+
+**주요 기능**:
+- 다운로드된 공시 파일 순회
+- 파서를 통한 섹션 추출
+- JSON 형식으로 저장
+
 **파일**: `scripts/02_parse_filings.py`
-
-```python
-#!/usr/bin/env python
-"""SEC 공시 파싱 스크립트"""
-import os
-import json
-from pathlib import Path
-from dotenv import load_dotenv
-from app.services.filing_parser import FilingParser
-
-def main():
-    load_dotenv()
-    
-    data_dir = Path("./data")
-    output_dir = Path("./data/parsed")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
-    tickers = ["AAPL", "AMZN", "TSLA", "GOOGL", "MSFT", "META", "NVDA"]
-    filing_types = ["10-K", "10-Q", "8-K"]
-    
-    for ticker in tickers:
-        for filing_type in filing_types:
-            filing_dir = data_dir / ticker / filing_type
-            if not filing_dir.exists():
-                continue
-                
-            for filing_file in filing_dir.glob("**/*.htm*"):
-                print(f"Parsing: {filing_file}")
-                
-                parser = FilingParser(filing_file, filing_type)
-                parser.load()
-                
-                sections = parser.extract_all_sections()
-                metadata = parser.get_metadata()
-                
-                # 결과 저장
-                output_file = output_dir / ticker / f"{filing_file.stem}.json"
-                output_file.parent.mkdir(parents=True, exist_ok=True)
-                
-                with open(output_file, 'w', encoding='utf-8') as f:
-                    json.dump({
-                        "metadata": metadata,
-                        "sections": sections
-                    }, f, ensure_ascii=False, indent=2)
-    
-    print("✅ 파싱 완료!")
-
-if __name__ == "__main__":
-    main()
-```
 
 ---
 
 ## Phase 4: Knowledge Triplet 추출 (4시간)
 
+> 📖 **상세 구현**: `plan/tasks/phase-4/` 폴더의 문서를 참고하세요.
+> - `phase-4.md`: Phase 4 전체 개요
+> - `phase-4-1.md`: 추출기 모듈 구현 상세
+> - `phase-4-2.md`: 추출 스크립트 상세
+
 ### 4.1 추출기 모듈 구현
-**파일**: `src/extractor/triplet_extractor.py`
+**목적**: LLM을 활용한 Knowledge Triplet 추출
 
-```python
-from openai import OpenAI
-import json
+**주요 기능**:
+- 기회 요소 (Opportunities) 추출
+- 리스크 요소 (Risks) 추출
+- 주요 이벤트 (Key Events) 추출
+- 전략 (Strategies) 추출
+- 재무 지표 (Financial Metrics) 추출
+- 제품/인물/기업 언급 추출
 
-class TripletExtractor:
-    """LLM을 활용한 Knowledge Triplet 추출 클래스"""
-    
-    EXTRACTION_PROMPT = """
-    다음 텍스트에서 지식 트리플렛을 추출하세요.
-    
-    추출 대상:
-    1. 기회 요소 (Opportunities)
-    2. 리스크 요소 (Risks)
-    3. 주요 이벤트 (Key Events)
-    4. 전략 (Strategies)
-    5. 재무 지표 (Financial Metrics)
-    
-    JSON 형식으로 반환하세요:
-    {
-        "opportunities": [{"entity": "...", "description": "..."}],
-        "risks": [{"entity": "...", "description": "..."}],
-        "events": [{"entity": "...", "date": "...", "description": "..."}],
-        "strategies": [{"entity": "...", "description": "..."}],
-        "financials": [{"metric": "...", "value": "...", "period": "..."}]
-    }
-    
-    텍스트:
-    {text}
-    """
-    
-    def __init__(self, model: str = "gpt-4o-mini"):
-        self.client = OpenAI()
-        self.model = model
-        
-    def extract(self, text: str) -> dict:
-        """텍스트에서 트리플렛 추출"""
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": "당신은 금융 문서 분석 전문가입니다."},
-                {"role": "user", "content": self.EXTRACTION_PROMPT.format(text=text)}
-            ],
-            response_format={"type": "json_object"}
-        )
-        return json.loads(response.choices[0].message.content)
-```
+**입력 데이터**:
+- 형식: JSON (파싱된 섹션 데이터)
+- 위치: `data/parsed/{ticker}/{filing_type}/`
+- 내용: 섹션별 텍스트
+
+**출력 데이터**:
+- 형식: JSON
+- 위치: `data/extracted/{ticker}/{filing_type}/`
+- 구조:
+  ```json
+  {
+    "metadata": {
+      "ticker": "AAPL",
+      "filing_type": "10-K",
+      "accession_number": "...",
+      "section": "risk_factors"
+    },
+    "opportunities": [{"entity": "...", "description": "..."}],
+    "risks": [{"entity": "...", "description": "..."}],
+    "events": [{"entity": "...", "date": "...", "description": "..."}],
+    "technologies": [{"entity": "...", "description": "..."}],
+    "mentioned_products": ["iPhone 15", "iPad Pro"],
+    "mentioned_persons": ["Tim Cook"],
+    "mentioned_companies": ["Samsung"]
+  }
+  ```
+
+**파일**: `app/services/processing/triplet_extractor.py`
 
 ### 4.2 추출 스크립트
+**목적**: 추출기 모듈을 실행하여 모든 파싱된 파일에서 Triplet 추출
+
+**주요 기능**:
+- 파싱된 파일 순회
+- LLM을 통한 Triplet 추출
+- JSON 형식으로 저장
+
 **파일**: `scripts/03_extract_triplets.py`
 
 ---
 
 ## Phase 5: Static Graph 생성 (2시간)
 
-### 5.1 데이터 파이프라인 구조
+> 📖 **상세 구현**: `plan/tasks/phase-5/` 폴더의 문서를 참고하세요.
+> - `phase-5.md`: Phase 5 전체 개요
+> - `phase-5-1.md`: Company Node 생성 상세
+> - `phase-5-2.md`: Product Node 생성 상세
+> - `phase-5-3.md`: Person Node 생성 상세
+> - `phase-5-4.md`: Static Link 생성 상세
+> - `phase-5-5.md`: 생성 스크립트 상세
 
+### 5.1 데이터 파이프라인 구조
 ```
 Extracted Data
     ↓
@@ -406,382 +327,213 @@ Extracted Data
 ```
 
 ### 5.2 Static Graph 생성 모듈 구현
-**파일**: `app/services/graph_generator.py`
+**파일**: `app/services/processing/graph_generator.py`
+
+**입력 데이터**:
+- 형식: JSON (추출된 엔티티 데이터)
+- 위치: `data/extracted/{ticker}/{filing_type}/`
+- 사용 필드: `mentioned_products`, `mentioned_persons`
+
+**출력 데이터**:
+- 형식: JSON
+- 위치: `data/graph/{TICKER}_static_graph.json`
+- 구조:
+  ```json
+  {
+    "nodes": {
+      "Company": [{
+        "id": "AAPL",
+        "node_type": "Company",
+        "ticker": "AAPL",
+        "name": "Apple Inc.",
+        "sector": "Technology",
+        "node_style": "static"
+      }],
+      "Product": [{
+        "id": "product_aapl_iphone_15_pro",
+        "node_type": "Product",
+        "name": "iPhone 15 Pro",
+        "node_style": "static"
+      }],
+      "Person": [{
+        "id": "person_aapl_tim_cook",
+        "node_type": "Person",
+        "name": "Tim Cook",
+        "node_style": "static"
+      }]
+    },
+    "links": [
+      {
+        "from": "AAPL",
+        "to": "product_aapl_iphone_15_pro",
+        "relationship_type": "MAKE"
+      },
+      {
+        "from": "AAPL",
+        "to": "person_aapl_tim_cook",
+        "relationship_type": "HAS_RELATION",
+        "role": "CEO"
+      }
+    ]
+  }
+  ```
 
 **주요 기능**:
-1. **Company Node 생성**
-   - 티커당 1개의 Company 노드 생성
-   - ID: `{ticker}` (예: `AAPL`)
-   - 필수 필드: id, node_type, ticker, name, sector, description, node_style
-
-2. **Product Node 생성**
-   - `mentioned_products_global`에서 중복 제거하여 생성
-   - ID: `product_{ticker}_{normalized_name}` (예: `product_aapl_iphone_15_pro`)
-   - **중요**: Product name은 고유명사 (예: "iPhone 15 Pro", "Tesla Model 3")
-   - 필수 필드: id, node_type, name, product_type, category, description, node_style
-
-3. **Person Node 생성**
-   - `mentioned_persons_global`에서 중복 제거하여 생성
-   - ID: `person_{ticker}_{normalized_name}` (예: `person_aapl_tim_cook`)
-   - 필수 필드: id, node_type, name, description, node_style
-
-4. **Static Link 생성**
-   - MAKE: Company → Product
-   - HAS_RELATION: Company → Person (role 속성 포함)
+1. **Company Node 생성**: 티커당 1개, ID: `{ticker}`
+2. **Product Node 생성**: `mentioned_products`에서 중복 제거, 정규화 적용, ID: `product_{ticker}_{normalized_name}`
+3. **Person Node 생성**: `mentioned_persons`에서 중복 제거, 정규화 적용, ID: `person_{ticker}_{normalized_name}`
+4. **Static Link 생성**: MAKE (Company → Product), HAS_RELATION (Company → Person)
 
 ### 5.3 생성 스크립트
-**파일**: `scripts/05_generate_static_graph.py`
+**파일**: `scripts/04_generate_static_graph.py`
 
-```python
-#!/usr/bin/env python
-"""Static Graph 생성 스크립트"""
-import argparse
-from app.services.graph_generator import generate_static_graph
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--ticker", nargs="+", default=["AAPL"])
-    args = parser.parse_args()
-    
-    for ticker in args.ticker:
-        static_graph = generate_static_graph(ticker.upper())
-        # 저장: data/graph/{TICKER}_static_graph.json
-
-if __name__ == "__main__":
-    main()
-```
+**주요 기능**:
+- 티커별 Static Graph 생성
+- JSON 파일로 저장
 
 ---
 
 ## Phase 6: Dynamic Graph 생성 (3시간)
 
+> 📖 **상세 구현**: `plan/tasks/phase-6/` 폴더의 문서를 참고하세요.
+> - `phase-6.md`: Phase 6 전체 개요
+> - `phase-6-1.md`: Dynamic Node 생성 상세
+> - `phase-6-2.md`: Dynamic Link 생성 상세
+> - `phase-6-3.md`: Embedding 생성 상세
+> - `phase-6-4.md`: 생성 스크립트 상세
+
 ### 6.1 실행 단계 개요
 
 | 단계 | 작업 내용 | 생성되는 노드/링크 |
 |------|----------|------------------|
-| **5.1** | Dynamic Node 생성 | Document, Section, Risk, Opportunity, Event, Technology |
-| **5.2** | IS_INCLUDED Link 생성 | Section → Document |
-| **5.3** | IS_EXTRACTED_FROM Link 생성 | Risk/Opp/Event/Tech → Section |
-| **5.4** | HAS_* Link 생성 | Company → Risk/Opp/Event/Tech |
-| **5.5** | IS_MENTIONED_IN Link 생성 | Product/Person/Company → Dynamic Node |
-| **5.6** | Embedding 생성 | 노드에 `description_embedding` 추가 (768차원) |
+| **6.1** | Dynamic Node 생성 | Document, Section, Risk, Opportunity, Event, Technology |
+| **6.2** | IS_INCLUDED Link 생성 | Section → Document |
+| **6.3** | IS_EXTRACTED_FROM Link 생성 | Risk/Opp/Event/Tech → Section |
+| **6.4** | HAS_* Link 생성 | Company → Risk/Opp/Event/Tech |
+| **6.5** | IS_MENTIONED_IN Link 생성 | Product/Person/Company → Dynamic Node |
+| **6.6** | Embedding 생성 | 노드에 `description_embedding` 추가 (768차원) |
 
 ### 6.2 Dynamic Node 생성
-**파일**: `app/services/dynamic_graph_generator.py`
+**파일**: `app/services/processing/dynamic_graph_generator.py`
+
+**입력 데이터**:
+- 형식: JSON (추출된 엔티티 데이터, 파싱된 섹션 데이터)
+- 위치: `data/extracted/{ticker}/{filing_type}/`, `data/parsed/{ticker}/{filing_type}/`
+- 사용 필드: `opportunities`, `risks`, `events`, `technologies`, `sections`, `metadata`
+
+**출력 데이터**:
+- 형식: JSON
+- 위치: `data/graph/{TICKER}_dynamic_graph.json`
+- 구조:
+  ```json
+  {
+    "nodes": {
+      "Document": [{
+        "id": "doc_aapl_10-k_0000320193-24-000077",
+        "node_type": "Document",
+        "ticker": "AAPL",
+        "filing_type": "10-K",
+        "accession_number": "0000320193-24-000077",
+        "year": 2024,
+        "node_style": "dynamic"
+      }],
+      "Section": [{
+        "id": "section_aapl_10-k_2024_risk_factors",
+        "node_type": "Section",
+        "section_name": "risk_factors",
+        "ticker": "AAPL",
+        "year": 2024,
+        "node_style": "dynamic"
+      }],
+      "Risk": [{
+        "id": "risk_aapl_intense_competition_2024",
+        "node_type": "Risk",
+        "entity": "Intense Competition",
+        "description": "...",
+        "ticker": "AAPL",
+        "node_style": "dynamic",
+        "description_embedding": [0.123, 0.456, ...]
+      }]
+    },
+    "links": [...]
+  }
+  ```
 
 **주요 기능**:
-1. **Document Node 생성**
-   - ID: `doc_{ticker}_{filing_type_lower}_{accession_number}`
-   - 필수 필드: id, node_type, ticker, filing_type, accession_number, year, sections_included
-
-2. **Section Node 생성**
-   - ID: `section_{ticker}_{filing_type_lower}_{year}_{section_name}`
-   - 필수 필드: id, node_type, section_name, filing_type, ticker, year, accession_number
-
-3. **Risk/Opportunity/Event/Technology Node 생성**
-   - Risk ID: `risk_{ticker}_{normalized_entity}_{year}`
-   - Opportunity ID: `opp_{ticker}_{normalized_entity}_{year}`
-   - Event ID: `event_{ticker}_{normalized_entity}_{year}`
-   - Technology ID: `tech_{ticker}_{normalized_entity}_{year}`
-   - 필수 필드: id, node_type, ticker, entity, description, metadata (source_section, filing_type, accession_number)
+1. **Document Node 생성**: ID: `doc_{ticker}_{filing_type_lower}_{accession_number}`
+2. **Section Node 생성**: ID: `section_{ticker}_{filing_type_lower}_{year}_{section_name}`
+3. **Risk/Opportunity/Event/Technology Node 생성**: 각각 고유 ID 패턴 사용
+4. **Embedding 추가**: Risk, Opportunity, Event, Technology 노드에 `description_embedding` 필드 추가 (768차원)
 
 ### 6.3 Dynamic Link 생성
-
-#### 6.3.1 IS_INCLUDED Link (Section → Document)
-```python
-def generate_is_included_links(section_nodes, doc_node) -> List[Dict]:
-    # Section이 어떤 Document에 포함되는지 연결
-    # section_order: sections_included 배열에서의 인덱스 + 1 (1-base)
-```
-
-#### 6.3.2 IS_EXTRACTED_FROM Link (Risk/Opp/Event/Tech → Section)
-```python
-def generate_is_extracted_from_links(dynamic_nodes, section_nodes, extracted_data, doc_node) -> List[Dict]:
-    # 추출된 엔티티가 어떤 Section에서 추출되었는지 추적
-    # 매칭 키: ticker, filing_type, year, source_section, accession_number
-```
-
-#### 6.3.3 HAS_* Link (Company → Risk/Opp/Event/Tech)
-```python
-def generate_has_risks_links(ticker, risk_nodes, extracted_data) -> List[Dict]
-def generate_has_opportunities_links(ticker, opp_nodes, extracted_data) -> List[Dict]
-def generate_has_events_links(ticker, event_nodes, extracted_data) -> List[Dict]
-def generate_has_technologies_links(ticker, tech_nodes, extracted_data) -> List[Dict]
-```
+**주요 링크 타입**:
+- IS_INCLUDED: Section → Document
+- IS_EXTRACTED_FROM: Risk/Opp/Event/Tech → Section
+- HAS_RISKS, HAS_OPPORTUNITIES, HAS_EVENTS, HAS_TECHNOLOGIES: Company → Dynamic Node
+- IS_MENTIONED_IN: Product/Person/Company → Dynamic Node
 
 ### 6.4 Embedding 생성
-**파일**: `app/services/embedding_generator.py`
-
-**개요**: Risk, Opportunity, Event, Technology 노드에 `description_embedding` 필드를 추가하여 의미 기반 검색을 지원합니다.
+**파일**: `app/services/processing/embedding_generator.py`
 
 **설정**:
 - 모델: Gemini `text-embedding-004` (768차원)
-- API: `google.generativeai.embed_content()`
-- 환경변수: `GOOGLE_API_KEY` 필요
+- 배치 처리: 100개/배치
 
-**벡터화 대상 텍스트**:
-| 노드 타입 | 텍스트 형식 |
-|----------|-----------|
-| Risk | `{entity}: {description}` |
-| Opportunity | `{entity}: {description}` |
-| Event | `{entity} ({date}): {description}` |
-| Technology | `{entity}: {description}` |
+### 6.5 생성 스크립트
+**파일**: `scripts/05_generate_dynamic_graph.py`
 
-```python
-def get_embedding_text(node: Dict) -> str:
-    """노드에서 embedding 대상 텍스트 추출"""
-
-async def generate_embedding(text: str) -> List[float]:
-    """단일 텍스트 embedding 생성"""
-
-async def generate_embeddings_batch(texts: List[str], batch_size: int = 100) -> List[List[float]]:
-    """배치 단위 embedding 생성 (API 호출 최적화)"""
-
-async def add_embeddings_to_nodes(nodes: List[Dict]) -> List[Dict]:
-    """노드 리스트에 embedding 추가"""
-```
-
-**예상 API 호출량**: 전체 ~1,569 노드 → ~19회 배치 호출 (100개/배치)
-
-### 6.5 통합 함수
-```python
-def generate_dynamic_links(ticker, doc_node, section_nodes, risk_nodes, opp_nodes, event_nodes, tech_nodes, extracted_data) -> List[Dict]:
-    all_links = []
-    all_links.extend(generate_is_included_links(section_nodes, doc_node))
-    all_links.extend(generate_is_extracted_from_links(dynamic_nodes, section_nodes, extracted_data, doc_node))
-    all_links.extend(generate_has_risks_links(ticker, risk_nodes, extracted_data))
-    all_links.extend(generate_has_opportunities_links(ticker, opp_nodes, extracted_data))
-    all_links.extend(generate_has_events_links(ticker, event_nodes, extracted_data))
-    all_links.extend(generate_has_technologies_links(ticker, tech_nodes, extracted_data))
-    return all_links
-```
-
-### 6.6 생성 스크립트
-**파일**: `scripts/06_generate_dynamic_graph.py`
-
-```python
-#!/usr/bin/env python
-"""Dynamic Graph 생성 스크립트"""
-import argparse
-from app.services.dynamic_graph_generator import generate_dynamic_graph
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--ticker", nargs="+", default=["AAPL"])
-    parser.add_argument("--with-embedding", action="store_true", help="Generate embeddings for nodes")
-    args = parser.parse_args()
-    
-    for ticker in args.ticker:
-        static_graph = load_static_graph(ticker)
-        dynamic_graph = generate_dynamic_graph(ticker.upper(), static_graph, with_embedding=args.with_embedding)
-        # 저장: data/graph/{TICKER}_dynamic_graph.json
-
-if __name__ == "__main__":
-    main()
-```
+**주요 기능**:
+- 티커별 Dynamic Graph 생성
+- Embedding 생성 옵션 지원
 
 ---
 
 ## Phase 7: Graph DB 저장 (3시간)
 
+> 📖 **상세 구현**: `plan/tasks/phase-7/` 폴더의 문서를 참고하세요.
+> - `phase-7.md`: Phase 7 전체 개요
+> - `phase-7-1.md`: Graph Loader 모듈 구현 상세
+> - `phase-7-2.md`: Cypher 쿼리 패턴 상세
+> - `phase-7-3.md`: 저장 스크립트 상세
+
 ### 7.1 개요
 Phase 5~6에서 생성된 Static/Dynamic Graph JSON 파일을 FalkorDB에 적재합니다.
 
-**입력 파일**:
-- `data/graph/{TICKER}_static_graph.json` - Company, Product, Person 노드 및 MAKE, HAS_RELATION 링크
-- `data/graph/{TICKER}_dynamic_graph.json` - Document, Section, Risk, Opportunity, Event, Technology 노드 및 모든 Dynamic 링크
+**입력 데이터**:
+- 형식: JSON
+- 위치: 
+  - `data/graph/{TICKER}_static_graph.json` - Company, Product, Person 노드 및 MAKE, HAS_RELATION 링크
+  - `data/graph/{TICKER}_dynamic_graph.json` - Document, Section, Risk, Opportunity, Event, Technology 노드 및 모든 Dynamic 링크
 
-**FalkorDB 설정**:
-```
-Host: localhost (또는 환경변수 FALKORDB_HOST)
-Port: 6379 (또는 환경변수 FALKORDB_PORT)
-Graph Name: financial_kg
-```
+**출력 데이터**:
+- 형식: FalkorDB Graph Database
+- 연결 정보:
+  - Host: localhost (환경변수 `FALKORDB_HOST`)
+  - Port: 6379 (환경변수 `FALKORDB_PORT`)
+  - Graph Name: `financial_kg`
+- 저장 내용: 모든 Node와 Link가 Cypher 쿼리로 적재됨
 
 ### 7.2 Graph Loader 모듈
-**파일**: `app/services/graph_loader.py`
+**파일**: `app/services/graph/graph_loader.py`
 
-```python
-from falkordb import FalkorDB
-from typing import Dict, List
-import logging
-
-class GraphLoader:
-    """FalkorDB에 노드 및 링크를 적재하는 클래스"""
-    
-    def __init__(self, host: str = "localhost", port: int = 6379, graph_name: str = "financial_kg"):
-        self.db = FalkorDB(host=host, port=port)
-        self.graph = self.db.select_graph(graph_name)
-        
-    async def initialize(self):
-        """인덱스 및 제약조건 생성"""
-        node_types = ["Company", "Product", "Person", "Document", "Section", 
-                      "Risk", "Opportunity", "Event", "Technology"]
-        for node_type in node_types:
-            self.graph.query(f"CREATE INDEX FOR (n:{node_type}) ON (n.id)")
-            self.graph.query(f"CREATE INDEX FOR (n:{node_type}) ON (n.ticker)")
-        logging.info("Indices created")
-        
-    async def create_node(self, node: Dict):
-        """노드 생성 (MERGE 사용하여 중복 방지)"""
-        node_type = node.get("node_type")
-        node_id = node.get("id")
-        props = {k: v for k, v in node.items() if k != "node_type" and v is not None}
-        
-        query = f"""
-        MERGE (n:{node_type} {{id: $id}})
-        SET n += $props
-        """
-        self.graph.query(query, {"id": node_id, "props": props})
-        
-    async def create_link(self, link: Dict):
-        """링크 생성 (MERGE 사용하여 중복 방지)"""
-        from_id = link.get("from")
-        to_id = link.get("to")
-        rel_type = link.get("relationship_type")
-        props = {k: v for k, v in link.items() 
-                 if k not in ["from", "to", "relationship_type"] and v is not None}
-        
-        query = f"""
-        MATCH (a {{id: $from_id}})
-        MATCH (b {{id: $to_id}})
-        MERGE (a)-[r:{rel_type}]->(b)
-        SET r += $props
-        """
-        self.graph.query(query, {"from_id": from_id, "to_id": to_id, "props": props})
-    
-    async def load_static_graph(self, ticker: str, static_graph: Dict):
-        """Static Graph 적재"""
-        for node_type, nodes in static_graph.get("nodes", {}).items():
-            for node in nodes:
-                await self.create_node(node)
-        for link in static_graph.get("links", []):
-            await self.create_link(link)
-    
-    async def load_dynamic_graph(self, ticker: str, dynamic_graph: Dict):
-        """Dynamic Graph 적재"""
-        for node_type, nodes in dynamic_graph.get("nodes", {}).items():
-            for node in nodes:
-                await self.create_node(node)
-        for link in dynamic_graph.get("links", []):
-            await self.create_link(link)
-    
-    def get_stats(self) -> Dict:
-        """적재 통계 반환"""
-        node_stats = self.graph.query("MATCH (n) RETURN labels(n)[0] AS label, count(n) AS count")
-        link_stats = self.graph.query("MATCH ()-[r]->() RETURN type(r) AS type, count(r) AS count")
-        return {"nodes": node_stats.result_set, "links": link_stats.result_set}
-```
+**주요 기능**:
+- 인덱스 및 제약조건 생성
+- 노드 생성 (MERGE 사용하여 중복 방지)
+- 링크 생성 (MERGE 사용하여 중복 방지)
+- Static/Dynamic Graph 적재
+- 통계 조회
 
 ### 7.3 Cypher 쿼리 패턴
-
-**노드 생성 (MERGE)**:
-```cypher
-// Company 노드
-MERGE (n:Company {id: $id})
-SET n.ticker = $ticker, n.name = $name, n.sector = $sector
-
-// Risk/Opportunity/Event/Technology 노드
-MERGE (n:Risk {id: $id})
-SET n.ticker = $ticker, n.entity = $entity, n.description = $description
-```
-
-**링크 생성 (MERGE)**:
-```cypher
-// HAS_RISKS 링크
-MATCH (a:Company {id: $from_id})
-MATCH (b:Risk {id: $to_id})
-MERGE (a)-[r:HAS_RISKS]->(b)
-
-// IS_MENTIONED_IN 링크
-MATCH (a {id: $from_id})
-MATCH (b {id: $to_id})
-MERGE (a)-[r:IS_MENTIONED_IN]->(b)
-SET r.mention_context = $mention_context
-```
+**노드 생성**: MERGE를 사용하여 중복 방지
+**링크 생성**: MATCH + MERGE를 사용하여 관계 생성
 
 ### 7.4 저장 스크립트
-**파일**: `scripts/07_load_graph_to_db.py`
+**파일**: `scripts/06_load_graph_to_db.py`
 
-```python
-#!/usr/bin/env python
-"""Phase 7: Graph DB 저장 스크립트"""
-import asyncio
-import json
-import os
-import argparse
-from pathlib import Path
-from dotenv import load_dotenv
-from app.services.graph_loader import GraphLoader
-
-async def main():
-    load_dotenv()
-    
-    parser = argparse.ArgumentParser(description="Load graph data into FalkorDB")
-    parser.add_argument("--ticker", nargs="+", default=["AAPL"])
-    parser.add_argument("--verify", action="store_true", help="Verify loaded data")
-    args = parser.parse_args()
-    
-    loader = GraphLoader(
-        host=os.getenv("FALKORDB_HOST", "localhost"),
-        port=int(os.getenv("FALKORDB_PORT", 6379))
-    )
-    await loader.initialize()
-    
-    graph_dir = Path("./data/graph")
-    
-    for ticker in args.ticker:
-        ticker = ticker.upper()
-        print(f"\n{'='*60}")
-        print(f"Loading graph data for {ticker}")
-        print(f"{'='*60}")
-        
-        # 1. Static Graph 로드
-        static_file = graph_dir / f"{ticker}_static_graph.json"
-        if static_file.exists():
-            with open(static_file, 'r', encoding='utf-8') as f:
-                static_graph = json.load(f)
-            await loader.load_static_graph(ticker, static_graph)
-            print(f"  ✅ Static Graph loaded")
-        
-        # 2. Dynamic Graph 로드
-        dynamic_file = graph_dir / f"{ticker}_dynamic_graph.json"
-        if dynamic_file.exists():
-            with open(dynamic_file, 'r', encoding='utf-8') as f:
-                dynamic_graph = json.load(f)
-            await loader.load_dynamic_graph(ticker, dynamic_graph)
-            print(f"  ✅ Dynamic Graph loaded")
-    
-    if args.verify:
-        stats = loader.get_stats()
-        print(f"\n📊 Statistics: {stats}")
-    
-    print(f"\n✅ Graph population completed!")
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-### 7.5 검증 쿼리
-
-```cypher
--- 노드 수 확인
-MATCH (n) RETURN labels(n)[0] AS label, count(n) AS count ORDER BY label
-
--- 링크 수 확인
-MATCH ()-[r]->() RETURN type(r) AS type, count(r) AS count ORDER BY type
-
--- 티커별 노드 수 확인
-MATCH (n) WHERE n.ticker IS NOT NULL
-RETURN n.ticker AS ticker, labels(n)[0] AS label, count(n) AS count
-ORDER BY ticker, label
-
--- 샘플 데이터 확인 (AAPL의 Risk와 연결된 Product)
-MATCH (p:Product)-[r:IS_MENTIONED_IN]->(risk:Risk)
-WHERE risk.ticker = 'AAPL'
-RETURN p.name, risk.entity, r.mention_context
-LIMIT 10
-```
+**주요 기능**:
+- Static/Dynamic Graph JSON 파일 로드
+- FalkorDB에 적재
+- 검증 옵션 지원
 
 ### 7.6 예상 적재량
 
@@ -815,126 +567,86 @@ LIMIT 10
 
 ## Phase 8: 질의 응답 시스템 (3시간)
 
+> 📖 **상세 구현**: `plan/tasks/phase-8/` 폴더의 문서를 참고하세요.
+> - `phase-8.md`: Phase 8 전체 개요
+> - `phase-8-1.md`: Intent 추출 구현 상세
+> - `phase-8-2.md`: Cypher 쿼리 빌더 구현 상세
+> - `phase-8-3.md`: Vector 검색 구현 상세
+> - `phase-8-4.md`: 답변 생성 구현 상세
+> - `phase-8-5.md`: API 엔드포인트 구현 상세
+
 ### 8.1 질의 엔진 구현
-**파일**: `src/query/query_engine.py`
+**목적**: 자연어 질의를 처리하여 그래프 기반 답변 생성
 
-```python
-from src.graph.graphiti_manager import GraphitiManager
-from openai import OpenAI
+**입력 데이터**:
+- 형식: 자연어 질의 (문자열)
+- 예시: "애플의 기회 요소를 알려줘"
 
-class QueryEngine:
-    """자연어 질의 처리 엔진"""
-    
-    TICKER_MAP = {
-        "애플": "AAPL",
-        "아마존": "AMZN", 
-        "테슬라": "TSLA",
-        "구글": "GOOGL",
-        "마이크로소프트": "MSFT",
-        "메타": "META",
-        "엔비디아": "NVDA"
-    }
-    
-    def __init__(self, graphiti_manager: GraphitiManager):
-        self.manager = graphiti_manager
-        self.llm = OpenAI()
-        
-    def extract_intent(self, query: str) -> dict:
-        """질의에서 의도 추출"""
-        # 기업명 추출
-        company = None
-        for kr_name, ticker in self.TICKER_MAP.items():
-            if kr_name in query:
-                company = ticker
-                break
-                
-        # 질의 유형 분류
-        query_type = "general"
-        if "기회" in query or "opportunity" in query.lower():
-            query_type = "opportunities"
-        elif "리스크" in query or "위험" in query:
-            query_type = "risks"
-        elif "전략" in query:
-            query_type = "strategies"
-            
-        return {"company": company, "query_type": query_type}
-        
-    async def query(self, user_query: str) -> str:
-        """사용자 질의 처리"""
-        intent = self.extract_intent(user_query)
-        
-        # 그래프 검색
-        results = await self.manager.search(
-            query=user_query,
-            group_ids=[intent["company"]] if intent["company"] else None
-        )
-        
-        # LLM을 통한 답변 생성
-        context = "\n".join([r.content for r in results[:10]])
-        
-        response = self.llm.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "당신은 금융 분석 전문가입니다. 주어진 정보를 바탕으로 질문에 답변하세요."},
-                {"role": "user", "content": f"컨텍스트:\n{context}\n\n질문: {user_query}"}
-            ]
-        )
-        
-        return response.choices[0].message.content
-```
+**출력 데이터**:
+- 형식: 구조화된 답변 (스트리밍)
+- 구조:
+  ```json
+  {
+    "answer": "...",
+    "sources": [
+      {
+        "document_id": "doc_aapl_10-k_...",
+        "section_id": "section_aapl_10-k_2024_business",
+        "entity": "..."
+      }
+    ]
+  }
+  ```
 
-### 8.2 CLI 인터페이스
-**파일**: `scripts/08_query_interface.py`
+**주요 기능**:
+- Intent 추출 (Gemini Structured Output)
+- Cypher 쿼리 빌더 (FalkorDB 그래프 쿼리)
+- Vector 검색 (하이브리드: Graph + Embedding)
+- 답변 생성 (스트리밍)
 
-```python
-#!/usr/bin/env python
-"""질의 응답 인터페이스"""
-import asyncio
-from src.graph.graphiti_manager import GraphitiManager
-from src.query.query_engine import QueryEngine
+**데이터 소스**:
+- FalkorDB 그래프 데이터 (Node, Link)
+- Embedding 벡터 (의미 기반 검색)
 
-async def main():
-    manager = GraphitiManager()
-    engine = QueryEngine(manager)
-    
-    print("=== 금융 공시 Knowledge Graph 질의 시스템 ===")
-    print("종료하려면 'exit' 또는 'quit'을 입력하세요.\n")
-    
-    while True:
-        query = input("질문: ").strip()
-        if query.lower() in ["exit", "quit"]:
-            break
-            
-        if not query:
-            continue
-            
-        answer = await engine.query(query)
-        print(f"\n답변: {answer}\n")
+**파일**: `app/services/query/query_engine.py`
 
-if __name__ == "__main__":
-    asyncio.run(main())
-```
+### 8.2 API 엔드포인트
+**파일**: `app/api/routes/answer.py`
+
+**주요 기능**:
+- `/answer` 엔드포인트 (스트리밍 답변)
+- FastAPI 기반 REST API
+- Server-Sent Events (SSE) 지원
 
 ---
 
 ## Phase 9: 테스트 및 검증 (2시간)
 
+> 📖 **상세 구현**: `plan/tasks/phase-9/` 폴더의 문서를 참고하세요.
+> - `phase-9.md`: Phase 9 전체 개요
+> - `phase-9-1.md`: 단위 테스트 상세
+> - `phase-9-2.md`: 통합 테스트 상세
+> - `phase-9-3.md`: 검증 시나리오 상세
+
 ### 9.1 단위 테스트
-**파일**: `tests/test_downloader.py`
-**파일**: `tests/test_parser.py`
-**파일**: `tests/test_extractor.py`
+**목적**: 각 모듈의 개별 기능 검증
+
+**테스트 파일**:
+- `tests/test_downloader.py`: 다운로더 모듈 테스트
+- `tests/test_parser.py`: 파서 모듈 테스트
+- `tests/test_extractor.py`: 추출기 모듈 테스트
 
 ### 9.2 통합 테스트
-**파일**: `tests/test_integration.py`
+**목적**: 전체 시스템 통합 검증
+
+**테스트 파일**: `tests/test_integration.py`
 
 ### 9.3 검증 시나리오
-
-| 테스트 케이스 | 입력 | 기대 결과 |
-|--------------|------|----------|
-| TC-01 | "애플의 기회 요소를 알려줘" | Apple 관련 기회 요소 목록 |
-| TC-02 | "테슬라의 리스크는?" | Tesla 관련 리스크 요소 |
-| TC-03 | "구글의 AI 전략" | Alphabet AI 관련 전략 |
-| TC-04 | "엔비디아 vs AMD 비교" | 두 기업 비교 분석 |
+**주요 테스트 케이스**:
+- TC-01: "애플의 기회 요소를 알려줘"
+- TC-02: "테슬라의 리스크는?"
+- TC-03: "구글의 AI 전략"
+- TC-04: "엔비디아 vs AMD 비교"
 
 ---
 
