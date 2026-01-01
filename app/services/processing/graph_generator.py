@@ -311,15 +311,12 @@ def generate_product_nodes(ticker: str, extracted_files: List[Path]) -> List[Dic
                     filtered_count += 1
                     continue
                 
-                normalized_name = normalize_product_name(product_name, ticker)
-                if normalized_name is None:
-                    filtered_count += 1
-                    continue
-                
-                name_key = normalized_name.lower()
+                # 중복 제거 (원본 이름 기준, 대소문자 무시)
+                # 정규화는 Phase 5.5에서 수행
+                name_key = product_name.lower()
                 if name_key not in all_products:
                     product_copy = product.copy()
-                    product_copy["name"] = normalized_name
+                    product_copy["name"] = product_name
                     all_products[name_key] = product_copy
             
             # 각 카테고리(opportunities, risks, events, technologies)에서 mentioned_products 수집
@@ -337,17 +334,12 @@ def generate_product_nodes(ticker: str, extracted_files: List[Path]) -> List[Dic
                             filtered_count += 1
                             continue
                         
-                        # 제품명 정규화
-                        normalized_name = normalize_product_name(product_name, ticker)
-                        if normalized_name is None:
-                            filtered_count += 1
-                            continue
-                        
-                        # 중복 제거 (정규화된 이름 기준, 대소문자 무시)
-                        name_key = normalized_name.lower()
+                        # 중복 제거 (원본 이름 기준, 대소문자 무시)
+                        # 정규화는 Phase 5.5에서 수행
+                        name_key = product_name.lower()
                         if name_key not in all_products:
                             product_copy = product.copy()
-                            product_copy["name"] = normalized_name
+                            product_copy["name"] = product_name
                             all_products[name_key] = product_copy
                             
         except Exception as e:
@@ -599,7 +591,7 @@ def generate_technology_nodes(ticker: str, extracted_files: List[Path]) -> List[
     technology_nodes = []
     for tech_entity, tech_data in all_technologies.items():
         normalized_name = normalize_id(tech_entity)
-        tech_id = f"technology_{ticker.lower()}_{normalized_name}"
+        tech_id = f"tech_{ticker.lower()}_{normalized_name}"
         
         description = tech_data.get("description", f"{tech_entity}은(는) {ticker}의 기술입니다.")
         
@@ -615,6 +607,151 @@ def generate_technology_nodes(ticker: str, extracted_files: List[Path]) -> List[
     
     logger.info(f"Generated {len(technology_nodes)} Technology nodes for {ticker}")
     return technology_nodes
+
+
+def normalize_static_nodes(
+    ticker: str,
+    product_nodes: List[Dict],
+    person_nodes: List[Dict],
+    technology_nodes: List[Dict]
+) -> tuple[List[Dict], List[Dict], List[Dict]]:
+    """Static 노드들을 정규화 (Phase 5.5)
+    
+    각 노드 타입(Product, Person, Technology)에 대해:
+    1. normalization_map 파일 참조하여 대표 키워드로 매핑
+    2. 매핑이 없으면 LLM을 활용하여 매핑 키워드 결정
+    3. LLM 제안도 없으면 새로운 대표 키워드로 normalization_map에 등록
+    
+    Args:
+        ticker: 티커 심볼
+        product_nodes: Product 노드 리스트
+        person_nodes: Person 노드 리스트
+        technology_nodes: Technology 노드 리스트
+        
+    Returns:
+        (정규화된 Product 노드 리스트, 정규화된 Person 노드 리스트, 정규화된 Technology 노드 리스트)
+    """
+    logger.info(f"Normalizing static nodes for {ticker}")
+    service = _get_normalization_service()
+    
+    # Product 노드 정규화
+    normalized_product_nodes = []
+    seen_product_ids = {}  # 중복 제거용
+    
+    for product_node in product_nodes:
+        original_name = product_node.get("name", "")
+        if not original_name:
+            continue
+        
+        # 정규화 수행
+        normalized_name = service.normalize(
+            original_name, "Product", ticker, use_llm=True, auto_save=True
+        )
+        
+        if normalized_name:
+            # 정규화된 이름으로 업데이트
+            product_node["name"] = normalized_name
+            product_node["normalized_name"] = normalized_name
+            
+            # ID 재생성 (정규화된 이름 기반)
+            normalized_id = normalize_id(normalized_name)
+            product_node["id"] = f"product_{ticker.lower()}_{normalized_id}"
+            
+            # 중복 제거 (정규화된 ID 기준)
+            if product_node["id"] not in seen_product_ids:
+                seen_product_ids[product_node["id"]] = True
+                normalized_product_nodes.append(product_node)
+        else:
+            # 정규화 실패 시 원본 유지
+            normalized_id = normalize_id(original_name)
+            product_node["id"] = f"product_{ticker.lower()}_{normalized_id}"
+            
+            # 중복 제거
+            if product_node["id"] not in seen_product_ids:
+                seen_product_ids[product_node["id"]] = True
+                normalized_product_nodes.append(product_node)
+    
+    # Person 노드 정규화
+    normalized_person_nodes = []
+    seen_person_ids = {}  # 중복 제거용
+    
+    for person_node in person_nodes:
+        original_name = person_node.get("name", "")
+        if not original_name:
+            continue
+        
+        # 정규화 수행
+        normalized_name = service.normalize(
+            original_name, "Person", ticker, use_llm=True, auto_save=True
+        )
+        
+        if normalized_name:
+            # 정규화된 이름으로 업데이트
+            person_node["name"] = normalized_name
+            person_node["normalized_name"] = normalized_name
+            
+            # ID 재생성 (정규화된 이름 기반)
+            normalized_id = normalize_id(normalized_name)
+            person_node["id"] = f"person_{ticker.lower()}_{normalized_id}"
+            
+            # 중복 제거 (정규화된 ID 기준)
+            if person_node["id"] not in seen_person_ids:
+                seen_person_ids[person_node["id"]] = True
+                normalized_person_nodes.append(person_node)
+        else:
+            # 정규화 실패 시 원본 유지
+            normalized_id = normalize_id(original_name)
+            person_node["id"] = f"person_{ticker.lower()}_{normalized_id}"
+            
+            # 중복 제거
+            if person_node["id"] not in seen_person_ids:
+                seen_person_ids[person_node["id"]] = True
+                normalized_person_nodes.append(person_node)
+    
+    # Technology 노드 정규화
+    normalized_technology_nodes = []
+    seen_tech_ids = {}  # 중복 제거용
+    
+    for tech_node in technology_nodes:
+        original_name = tech_node.get("name", "")
+        if not original_name:
+            continue
+        
+        # 정규화 수행
+        normalized_name = service.normalize(
+            original_name, "Technology", ticker, use_llm=True, auto_save=True
+        )
+        
+        if normalized_name:
+            # 정규화된 이름으로 업데이트
+            tech_node["name"] = normalized_name
+            tech_node["normalized_name"] = normalized_name
+            
+            # ID 재생성 (정규화된 이름 기반)
+            normalized_id = normalize_id(normalized_name)
+            tech_node["id"] = f"tech_{ticker.lower()}_{normalized_id}"
+            
+            # 중복 제거 (정규화된 ID 기준)
+            if tech_node["id"] not in seen_tech_ids:
+                seen_tech_ids[tech_node["id"]] = True
+                normalized_technology_nodes.append(tech_node)
+        else:
+            # 정규화 실패 시 원본 유지
+            normalized_id = normalize_id(original_name)
+            tech_node["id"] = f"tech_{ticker.lower()}_{normalized_id}"
+            
+            # 중복 제거
+            if tech_node["id"] not in seen_tech_ids:
+                seen_tech_ids[tech_node["id"]] = True
+                normalized_technology_nodes.append(tech_node)
+    
+    logger.info(
+        f"Normalized nodes: Products={len(normalized_product_nodes)}, "
+        f"Persons={len(normalized_person_nodes)}, "
+        f"Technologies={len(normalized_technology_nodes)}"
+    )
+    
+    return normalized_product_nodes, normalized_person_nodes, normalized_technology_nodes
 
 
 def generate_uses_links(company_id: str, technology_nodes: List[Dict]) -> List[Dict]:
@@ -691,7 +828,12 @@ def generate_static_graph(ticker: str, extracted_dir: Path) -> Dict:
     else:
         technology_nodes = generate_technology_nodes(ticker, extracted_files)
     
-    # 5. 링크 생성
+    # 5. 정규화 단계 (Phase 5.5)
+    product_nodes, person_nodes, technology_nodes = normalize_static_nodes(
+        ticker, product_nodes, person_nodes, technology_nodes
+    )
+    
+    # 6. 링크 생성
     make_links = generate_make_links(company_node["id"], product_nodes)
     has_relation_links = generate_has_relation_links(
         company_node["id"], person_nodes, extracted_files

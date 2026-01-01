@@ -18,7 +18,7 @@ from pathlib import Path
 # 프로젝트 루트를 경로에 추가
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.services.graph_generator import generate_static_graph
+from app.services.processing.graph_generator import generate_static_graph
 
 logging.basicConfig(
     level=logging.INFO,

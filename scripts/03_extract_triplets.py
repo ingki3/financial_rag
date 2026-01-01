@@ -13,7 +13,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from dotenv import load_dotenv
-from app.services.triplet_extractor import TripletExtractorBatch
+from app.services.processing.triplet_extractor import TripletExtractorBatch
 
 # 로깅 설정
 logging.basicConfig(
