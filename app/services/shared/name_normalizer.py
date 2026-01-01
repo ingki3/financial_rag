@@ -88,6 +88,25 @@ class NameNormalizer:
         if not name:
             return None
         
+        # Phase 5 통합: NormalizationService 사용
+        try:
+            from app.services.shared.normalization_service import NormalizationService
+            service = NormalizationService()
+            result = service.normalize(name, node_type, ticker, use_llm=use_llm, auto_save=True)
+            return result
+        except Exception as e:
+            logger.warning(f"NormalizationService failed, falling back to legacy method: {e}")
+            # Fallback to legacy method
+            return self._normalize_legacy(name, node_type, ticker, use_llm)
+    
+    def _normalize_legacy(
+        self,
+        name: str,
+        node_type: str,
+        ticker: str,
+        use_llm: bool = True
+    ) -> Optional[str]:
+        """레거시 정규화 메서드 (Fallback)"""
         ticker = ticker.upper()
         
         # 표준 사전 확인

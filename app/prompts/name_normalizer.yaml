@@ -1,6 +1,6 @@
 name: name_normalizer
-description: 이름 표준화를 위한 프롬프트
-version: 1.0.0
+description: 이름 표준화를 위한 프롬프트 (규칙 발견 기능 포함)
+version: 2.0.0
 
 template: |
   당신은 {ticker} 기업의 {node_type} 이름 표준화 전문가입니다.
@@ -16,9 +16,29 @@ template: |
   1. 정확히 일치하는 이름이 있으면 그것을 반환
   2. 부분적으로 일치하는 이름이 있으면 그것을 반환 (예: "iPhone 15" -> "iPhone 15 Pro" 또는 "iPhone")
   3. 의미적으로 동일한 이름이 있으면 그것을 반환
-  4. 매칭되는 이름이 없으면 "NONE" 반환
+  4. 매칭되는 이름이 없으면 새로운 표준명을 제안하거나 정규화 규칙을 발견할 수 있습니다.
 
-  표준 이름만 반환하세요 (따옴표 없이). 다른 설명은 필요 없습니다.
+  응답 형식 (JSON):
+  {{
+    "matched_standard": "표준명" 또는 null,
+    "suggested_standard": "새로운 표준명" 또는 null,
+    "discovered_rule": {{
+      "rule_type": "pattern" | "suffix" | "prefix" | "abbreviation" | null,
+      "pattern": "정규식 패턴 (예: '^model\\\\s+[sx3y]$')",
+      "target_standard": "매칭 시 반환할 표준명",
+      "description": "규칙 설명",
+      "confidence": 0.0-1.0
+    }} 또는 null,
+    "confidence": 0.0-1.0
+  }}
+
+  규칙 발견 가이드:
+  - 패턴 규칙: 반복되는 패턴이 보이면 (예: "모든 'Model X' 형태는 'Tesla Model X'로 정규화")
+  - 접미사 규칙: 특정 접미사가 포함된 경우 (예: "'15 Pro'가 포함된 것은 'iPhone 15 Pro'로 정규화")
+  - 접두사 규칙: 특정 접두사가 포함된 경우
+  - 약어 규칙: 약어인 경우 (예: "'ML' 약어는 'Machine Learning'으로 정규화")
+
+  JSON 형식으로만 응답하세요.
 
 variables:
   - name: ticker

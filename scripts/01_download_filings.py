@@ -10,7 +10,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from dotenv import load_dotenv
-from app.services.sec_downloader import SECFilingDownloader
+from app.services.download.sec_downloader import SECFilingDownloader
 
 # 로깅 설정
 logging.basicConfig(
